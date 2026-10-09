@@ -1,0 +1,21 @@
+{
+  "TableName": "user_session",
+  "BillingMode": "PAY_PER_REQUEST",
+  "AttributeDefinitions": [
+    { "AttributeName": "session_id", "AttributeType": "S" },
+    { "AttributeName": "user_id",    "AttributeType": "S" }
+  ],
+  "KeySchema": [
+    { "AttributeName": "session_id", "KeyType": "HASH" }
+  ],
+  "GlobalSecondaryIndexes": [
+    {
+      "IndexName": "user_id-index",
+      "KeySchema": [
+        { "AttributeName": "user_id", "KeyType": "HASH" }
+      ],
+      "Projection": { "ProjectionType": "ALL" }
+    }
+  ],
+  "Tags": [{ "Key": "project", "Value": "billing-system" }]
+}

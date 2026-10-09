@@ -1,0 +1,11 @@
+{
+  "TableName": "invoice_cart",
+  "BillingMode": "PAY_PER_REQUEST",
+  "AttributeDefinitions": [
+    { "AttributeName": "user_id", "AttributeType": "S" }
+  ],
+  "KeySchema": [
+    { "AttributeName": "user_id", "KeyType": "HASH" }
+  ],
+  "Tags": [{ "Key": "project", "Value": "billing-system" }]
+}

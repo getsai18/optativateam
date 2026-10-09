@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="770" viewBox="0 0 1280 770" font-family="DejaVu Sans, Arial, Helvetica, sans-serif">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker></defs>
+<rect width="1280" height="770" fill="#ffffff"/>
+<text x="30" y="40" font-size="22" fill="#111827" text-anchor="start" font-weight="bold">Arquitectura AWS - Sistema de Facturación</text>
+<text x="30" y="62" font-size="13" fill="#4b5563" text-anchor="start">Frontend (Web) → API Gateway → Lambda (Flask) → RDS / DynamoDB</text>
+<rect x="610" y="90" width="430" height="560" rx="12" fill="#faf7ff" stroke="#8C4FFF" stroke-width="2.5"/>
+<text x="626" y="112" font-size="14" fill="#8C4FFF" text-anchor="start" font-weight="bold">VPC</text>
+<text x="660" y="112" font-size="11" fill="#6b7280" text-anchor="start">(red privada en AWS)</text>
+<rect x="630" y="130" width="390" height="130" rx="8" fill="#eef7ea" stroke="#7AA116" stroke-width="1.5"/>
+<text x="644" y="150" font-size="12" fill="#4d6b0d" text-anchor="start" font-weight="bold">Subnet pública</text>
+<rect x="630" y="285" width="390" height="345" rx="8" fill="#e8f1fb" stroke="#3B48CC" stroke-width="1.5"/>
+<text x="644" y="305" font-size="12" fill="#2a3499" text-anchor="start" font-weight="bold">Subnet privada</text>
+<text x="644" y="320" font-size="10" fill="#4b5563" text-anchor="start">(sin acceso directo desde internet)</text>
+<rect x="30" y="300" width="130" height="70" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="30" y="300" width="7" height="70" rx="3" fill="#6b7280"/>
+<text x="50" y="332.0" font-size="15" font-weight="bold" fill="#111827">Usuario</text>
+<text x="50" y="351.0" font-size="11" fill="#4b5563">navegador web</text>
+<rect x="205" y="300" width="130" height="70" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="205" y="300" width="7" height="70" rx="3" fill="#8C4FFF"/>
+<text x="225" y="332.0" font-size="15" font-weight="bold" fill="#111827">Route 53</text>
+<text x="225" y="351.0" font-size="11" fill="#4b5563">DNS del dominio</text>
+<rect x="400" y="95" width="175" height="70" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="400" y="95" width="7" height="70" rx="3" fill="#7AA116"/>
+<text x="420" y="127.0" font-size="15" font-weight="bold" fill="#111827">S3</text>
+<text x="420" y="146.0" font-size="11" fill="#4b5563">Frontend web (HTML/JS)</text>
+<rect x="400" y="300" width="175" height="70" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="400" y="300" width="7" height="70" rx="3" fill="#8C4FFF"/>
+<text x="420" y="332.0" font-size="15" font-weight="bold" fill="#111827">API Gateway</text>
+<text x="420" y="351.0" font-size="11" fill="#4b5563">REST API + JWT</text>
+<rect x="400" y="520" width="175" height="70" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="400" y="520" width="7" height="70" rx="3" fill="#E7157B"/>
+<text x="420" y="552.0" font-size="15" font-weight="bold" fill="#111827">CloudWatch</text>
+<text x="420" y="571.0" font-size="11" fill="#4b5563">logs y métricas</text>
+<rect x="410" y="215" width="130" height="55" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6 4"/>
+<rect x="410" y="215" width="7" height="55" rx="3" fill="#6b7280"/>
+<text x="430" y="239.5" font-size="15" font-weight="bold" fill="#111827">Tu laptop</text>
+<text x="430" y="258.5" font-size="11" fill="#4b5563">conexión SSH</text>
+<rect x="650" y="345" width="155" height="75" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="650" y="345" width="7" height="75" rx="3" fill="#ED7100"/>
+<text x="670" y="379.5" font-size="15" font-weight="bold" fill="#111827">Lambda</text>
+<text x="670" y="398.5" font-size="11" fill="#4b5563">Backend Flask</text>
+<rect x="845" y="345" width="155" height="75" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="845" y="345" width="7" height="75" rx="3" fill="#3B48CC"/>
+<text x="865" y="379.5" font-size="15" font-weight="bold" fill="#111827">RDS MySQL 8</text>
+<text x="865" y="398.5" font-size="11" fill="#4b5563">17 tablas, 13 SPs</text>
+<rect x="845" y="530" width="155" height="65" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="845" y="530" width="7" height="65" rx="3" fill="#8C4FFF"/>
+<text x="865" y="559.5" font-size="15" font-weight="bold" fill="#111827">VPC Endpoint</text>
+<text x="865" y="578.5" font-size="11" fill="#4b5563">acceso a DynamoDB</text>
+<rect x="845" y="160" width="155" height="70" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="845" y="160" width="7" height="70" rx="3" fill="#ED7100"/>
+<text x="865" y="192.0" font-size="15" font-weight="bold" fill="#111827">EC2 (bastion)</text>
+<text x="865" y="211.0" font-size="11" fill="#4b5563">para administrar RDS</text>
+<rect x="1085" y="525" width="170" height="75" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<rect x="1085" y="525" width="7" height="75" rx="3" fill="#3B48CC"/>
+<text x="1105" y="559.5" font-size="15" font-weight="bold" fill="#111827">DynamoDB</text>
+<text x="1105" y="578.5" font-size="11" fill="#4b5563">auditoría y sesiones</text>
+<path d="M160,335 L205,335" fill="none" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M270,300 L270,130 L400,130" fill="none" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M335,335 L400,335" fill="none" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M575,335 L592,335 L592,382 L650,382" fill="none" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M805,382 L845,382" fill="none" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M727,420 L727,562 L845,562" fill="none" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M1000,562 L1085,562" fill="none" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M540,242 L590,242 L590,195 L845,195" fill="none" stroke="#6b7280" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+<path d="M922,230 L922,345" fill="none" stroke="#6b7280" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+<path d="M487,520 L487,370" fill="none" stroke="#E7157B" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+<path d="M575,545 L690,420" fill="none" stroke="#E7157B" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+<text x="715" y="188" font-size="11" fill="#6b7280" text-anchor="start">SSH</text>
+<text x="930" y="277" font-size="11" fill="#6b7280" text-anchor="start">SQL (admin)</text>
+<circle cx="182" cy="312" r="12" fill="#111827"/>
+<text x="182" y="317" font-size="13" font-weight="bold" fill="#ffffff" text-anchor="middle">1</text>
+<circle cx="270" cy="215" r="12" fill="#111827"/>
+<text x="270" y="220" font-size="13" font-weight="bold" fill="#ffffff" text-anchor="middle">2</text>
+<circle cx="368" cy="312" r="12" fill="#111827"/>
+<text x="368" y="317" font-size="13" font-weight="bold" fill="#ffffff" text-anchor="middle">3</text>
+<circle cx="592" cy="358" r="12" fill="#111827"/>
+<text x="592" y="363" font-size="13" font-weight="bold" fill="#ffffff" text-anchor="middle">4</text>
+<circle cx="825" cy="360" r="12" fill="#111827"/>
+<text x="825" y="365" font-size="13" font-weight="bold" fill="#ffffff" text-anchor="middle">5</text>
+<circle cx="1062" cy="538" r="12" fill="#111827"/>
+<text x="1062" y="543" font-size="13" font-weight="bold" fill="#ffffff" text-anchor="middle">6</text>
+<line x1="30" y1="680" x2="1250" y2="680" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="30" y="706" font-size="12" fill="#111827" text-anchor="start">1  El usuario abre el dominio y Route 53 lo resuelve.</text>
+<text x="30" y="728" font-size="12" fill="#111827" text-anchor="start">2  El navegador descarga el frontend web desde S3.</text>
+<text x="30" y="750" font-size="12" fill="#111827" text-anchor="start">3  El frontend llama a la API y manda su token JWT.</text>
+<text x="560" y="706" font-size="12" fill="#111827" text-anchor="start">4  API Gateway invoca la Lambda con el backend Flask.</text>
+<text x="560" y="728" font-size="12" fill="#111827" text-anchor="start">5  Lambda consulta y escribe en RDS (tablas y Stored Procedures).</text>
+<text x="560" y="750" font-size="12" fill="#111827" text-anchor="start">6  Lambda guarda auditoría, sesiones y carritos en DynamoDB.</text>
+</svg>

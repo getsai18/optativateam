@@ -255,7 +255,7 @@ CREATE TABLE payment (
     payment_method_id TINYINT UNSIGNED NOT NULL,
     amount            DECIMAL(12,2)    NOT NULL,
     reference         VARCHAR(60)      NULL,     -- referencia simulada
-    status            ENUM('PENDING','APPROVED','REJECTED') NOT NULL DEFAULT 'APPROVED',
+    status            ENUM('PENDING','APPROVED','REJECTED','REFUNDED') NOT NULL DEFAULT 'APPROVED',
     paid_at           DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY ix_payment_invoice (invoice_id),
