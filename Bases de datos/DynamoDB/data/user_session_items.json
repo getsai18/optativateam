@@ -1,0 +1,47 @@
+{
+  "billing_user_session": [
+    {
+      "PutRequest": {
+        "Item": {
+          "session_id": { "S": "7f3c1a9e-2b5d-4c8a-9e1f-0a4b6d8c2e10" },
+          "user_id":    { "S": "1" },
+          "role":       { "S": "ADMIN" },
+          "created_at": { "S": "2026-10-10T14:30:00.000Z" },
+          "ip_address": { "S": "189.203.45.67" },
+          "user_agent": { "S": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
+          "expires_at": { "S": "2026-10-10T15:00:00.000Z" },
+          "ttl":        { "N": "1791644400" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "session_id": { "S": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d" },
+          "user_id":    { "S": "2" },
+          "role":       { "S": "BILLER" },
+          "created_at": { "S": "2026-10-10T14:45:00.000Z" },
+          "ip_address": { "S": "187.190.12.34" },
+          "user_agent": { "S": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" },
+          "expires_at": { "S": "2026-10-10T15:15:00.000Z" },
+          "ttl":        { "N": "1791645300" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "session_id": { "S": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80" },
+          "user_id":    { "S": "4" },
+          "role":       { "S": "CUSTOMER" },
+          "customer_id":{ "S": "1" },
+          "created_at": { "S": "2026-10-10T13:00:00.000Z" },
+          "ip_address": { "S": "201.148.56.78" },
+          "user_agent": { "S": "Mozilla/5.0 (X11; Linux x86_64)" },
+          "expires_at": { "S": "2026-10-10T13:30:00.000Z" },
+          "ttl":        { "N": "1791639000" }
+        }
+      }
+    }
+  ]
+}

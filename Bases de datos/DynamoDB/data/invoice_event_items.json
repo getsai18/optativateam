@@ -1,0 +1,80 @@
+{
+  "billing_invoice_event": [
+    {
+      "PutRequest": {
+        "Item": {
+          "invoice_id": { "S": "1" },
+          "event_ts":   { "S": "2026-10-01T09:15:00.000Z" },
+          "event_type": { "S": "CREATED" },
+          "from_status":{ "S": "NONE" },
+          "to_status":  { "S": "DRAFT" },
+          "user_id":    { "S": "2" },
+          "details":    { "M": { "customer_id": { "S": "1" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "invoice_id": { "S": "2" },
+          "event_ts":   { "S": "2026-09-28T08:00:00.000Z" },
+          "event_type": { "S": "CREATED" },
+          "from_status":{ "S": "NONE" },
+          "to_status":  { "S": "DRAFT" },
+          "user_id":    { "S": "2" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "invoice_id": { "S": "2" },
+          "event_ts":   { "S": "2026-10-02T10:30:00.000Z" },
+          "event_type": { "S": "ISSUED" },
+          "from_status":{ "S": "DRAFT" },
+          "to_status":  { "S": "ISSUED" },
+          "user_id":    { "S": "2" },
+          "details":    { "M": { "folio": { "S": "INV-2026-0001" }, "total": { "N": "10440.00" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "invoice_id": { "S": "3" },
+          "event_ts":   { "S": "2026-09-22T09:00:00.000Z" },
+          "event_type": { "S": "CREATED" },
+          "from_status":{ "S": "NONE" },
+          "to_status":  { "S": "DRAFT" },
+          "user_id":    { "S": "3" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "invoice_id": { "S": "3" },
+          "event_ts":   { "S": "2026-09-22T11:00:00.000Z" },
+          "event_type": { "S": "ISSUED" },
+          "from_status":{ "S": "DRAFT" },
+          "to_status":  { "S": "ISSUED" },
+          "user_id":    { "S": "3" },
+          "details":    { "M": { "folio": { "S": "INV-2026-0002" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "invoice_id": { "S": "3" },
+          "event_ts":   { "S": "2026-09-24T15:45:00.000Z" },
+          "event_type": { "S": "PAID" },
+          "from_status":{ "S": "ISSUED" },
+          "to_status":  { "S": "PAID" },
+          "user_id":    { "S": "3" },
+          "details":    { "M": { "method": { "S": "TRANSFER" }, "amount": { "N": "12255.00" } } }
+        }
+      }
+    }
+  ]
+}
