@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="680" viewBox="0 0 1120 680">
+<defs>
+<marker id="arr" markerWidth="9" markerHeight="8" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 z" fill="#495057"/></marker>
+</defs>
+<rect width="1120" height="680" fill="#FFFFFF"/>
+<text x="560.0" y="30" text-anchor="middle" font-size="19" font-weight="bold" fill="#212529" font-family="Segoe UI, Arial">Amazon DynamoDB — 4 tablas NoSQL del Sistema de Facturacion</text>
+<text x="560.0" y="50" text-anchor="middle" font-size="12" fill="#868E96" font-family="Segoe UI, Arial">Diseno por patrones de acceso del frontend · auditoria, eventos de factura, sesiones TTL y carrito del wizard</text>
+<rect x="340" y="60" width="300" height="170" fill="#FFFFFF" stroke="#343A40" stroke-width="1.3"/>
+<rect x="340" y="60" width="300" height="26" fill="#FF9900"/>
+<text x="490.0" y="77" text-anchor="middle" font-size="13" font-weight="bold" fill="#FFFFFF" font-family="Segoe UI, Arial">billing_audit_log</text>
+<line x1="346" y1="94" x2="634" y2="94" stroke="#F1F3F5"/>
+<text x="632" y="106" text-anchor="end" font-size="9.5" font-weight="bold" fill="#C92A2A" font-family="Consolas, monospace">PK</text>
+<text x="350" y="106" font-size="11.5" fill="#212529" font-family="Consolas, monospace">entity_key  (HASH)</text>
+<line x1="346" y1="110" x2="634" y2="110" stroke="#F1F3F5"/>
+<text x="632" y="122" text-anchor="end" font-size="9.5" font-weight="bold" fill="#6741D9" font-family="Consolas, monospace">SK</text>
+<text x="350" y="122" font-size="11.5" fill="#212529" font-family="Consolas, monospace">event_ts  (RANGE)</text>
+<line x1="346" y1="126" x2="634" y2="126" stroke="#F1F3F5"/>
+<text x="632" y="138" text-anchor="end" font-size="9.5" font-weight="bold" fill="#B45309" font-family="Consolas, monospace">GSI</text>
+<text x="350" y="138" font-size="11.5" fill="#212529" font-family="Consolas, monospace">feed_pk  (GSI feed)</text>
+<line x1="346" y1="142" x2="634" y2="142" stroke="#F1F3F5"/>
+<text x="632" y="154" text-anchor="end" font-size="9.5" font-weight="bold" fill="#B45309" font-family="Consolas, monospace">GSI</text>
+<text x="350" y="154" font-size="11.5" fill="#212529" font-family="Consolas, monospace">user_id  (GSI user)</text>
+<line x1="346" y1="158" x2="634" y2="158" stroke="#F1F3F5"/>
+<text x="350" y="170" font-size="11.5" fill="#495057" font-family="Consolas, monospace">action</text>
+<line x1="346" y1="174" x2="634" y2="174" stroke="#F1F3F5"/>
+<text x="350" y="186" font-size="11.5" fill="#495057" font-family="Consolas, monospace">entity_type</text>
+<line x1="346" y1="190" x2="634" y2="190" stroke="#F1F3F5"/>
+<text x="350" y="202" font-size="11.5" fill="#495057" font-family="Consolas, monospace">entity_id</text>
+<line x1="346" y1="206" x2="634" y2="206" stroke="#F1F3F5"/>
+<text x="350" y="218" font-size="11.5" fill="#495057" font-family="Consolas, monospace">details {M}</text>
+<rect x="720" y="60" width="300" height="154" fill="#FFFFFF" stroke="#343A40" stroke-width="1.3"/>
+<rect x="720" y="60" width="300" height="26" fill="#FF9900"/>
+<text x="870.0" y="77" text-anchor="middle" font-size="13" font-weight="bold" fill="#FFFFFF" font-family="Segoe UI, Arial">billing_invoice_event</text>
+<line x1="726" y1="94" x2="1014" y2="94" stroke="#F1F3F5"/>
+<text x="1012" y="106" text-anchor="end" font-size="9.5" font-weight="bold" fill="#C92A2A" font-family="Consolas, monospace">PK</text>
+<text x="730" y="106" font-size="11.5" fill="#212529" font-family="Consolas, monospace">invoice_id  (HASH)</text>
+<line x1="726" y1="110" x2="1014" y2="110" stroke="#F1F3F5"/>
+<text x="1012" y="122" text-anchor="end" font-size="9.5" font-weight="bold" fill="#6741D9" font-family="Consolas, monospace">SK</text>
+<text x="730" y="122" font-size="11.5" fill="#212529" font-family="Consolas, monospace">event_ts  (RANGE)</text>
+<line x1="726" y1="126" x2="1014" y2="126" stroke="#F1F3F5"/>
+<text x="730" y="138" font-size="11.5" fill="#495057" font-family="Consolas, monospace">event_type</text>
+<line x1="726" y1="142" x2="1014" y2="142" stroke="#F1F3F5"/>
+<text x="730" y="154" font-size="11.5" fill="#495057" font-family="Consolas, monospace">from_status</text>
+<line x1="726" y1="158" x2="1014" y2="158" stroke="#F1F3F5"/>
+<text x="730" y="170" font-size="11.5" fill="#495057" font-family="Consolas, monospace">to_status</text>
+<line x1="726" y1="174" x2="1014" y2="174" stroke="#F1F3F5"/>
+<text x="730" y="186" font-size="11.5" fill="#495057" font-family="Consolas, monospace">user_id</text>
+<line x1="726" y1="190" x2="1014" y2="190" stroke="#F1F3F5"/>
+<text x="730" y="202" font-size="11.5" fill="#495057" font-family="Consolas, monospace">details {M}</text>
+<rect x="340" y="370" width="300" height="154" fill="#FFFFFF" stroke="#343A40" stroke-width="1.3"/>
+<rect x="340" y="370" width="300" height="26" fill="#C925D1"/>
+<text x="490.0" y="387" text-anchor="middle" font-size="13" font-weight="bold" fill="#FFFFFF" font-family="Segoe UI, Arial">billing_user_session</text>
+<line x1="346" y1="404" x2="634" y2="404" stroke="#F1F3F5"/>
+<text x="632" y="416" text-anchor="end" font-size="9.5" font-weight="bold" fill="#C92A2A" font-family="Consolas, monospace">PK</text>
+<text x="350" y="416" font-size="11.5" fill="#212529" font-family="Consolas, monospace">session_id  (HASH)</text>
+<line x1="346" y1="420" x2="634" y2="420" stroke="#F1F3F5"/>
+<text x="632" y="432" text-anchor="end" font-size="9.5" font-weight="bold" fill="#B45309" font-family="Consolas, monospace">GSI</text>
+<text x="350" y="432" font-size="11.5" fill="#212529" font-family="Consolas, monospace">user_id  (GSI user_id-index)</text>
+<line x1="346" y1="436" x2="634" y2="436" stroke="#F1F3F5"/>
+<text x="350" y="448" font-size="11.5" fill="#495057" font-family="Consolas, monospace">role</text>
+<line x1="346" y1="452" x2="634" y2="452" stroke="#F1F3F5"/>
+<text x="350" y="464" font-size="11.5" fill="#495057" font-family="Consolas, monospace">customer_id</text>
+<line x1="346" y1="468" x2="634" y2="468" stroke="#F1F3F5"/>
+<text x="350" y="480" font-size="11.5" fill="#495057" font-family="Consolas, monospace">created_at</text>
+<line x1="346" y1="484" x2="634" y2="484" stroke="#F1F3F5"/>
+<text x="350" y="496" font-size="11.5" fill="#495057" font-family="Consolas, monospace">expires_at</text>
+<line x1="346" y1="500" x2="634" y2="500" stroke="#F1F3F5"/>
+<text x="632" y="512" text-anchor="end" font-size="9.5" font-weight="bold" fill="#0B7285" font-family="Consolas, monospace">TTL</text>
+<text x="350" y="512" font-size="11.5" fill="#212529" font-family="Consolas, monospace">ttl  (epoch seg)</text>
+<rect x="720" y="370" width="300" height="154" fill="#FFFFFF" stroke="#343A40" stroke-width="1.3"/>
+<rect x="720" y="370" width="300" height="26" fill="#C925D1"/>
+<text x="870.0" y="387" text-anchor="middle" font-size="13" font-weight="bold" fill="#FFFFFF" font-family="Segoe UI, Arial">billing_invoice_cart</text>
+<line x1="726" y1="404" x2="1014" y2="404" stroke="#F1F3F5"/>
+<text x="1012" y="416" text-anchor="end" font-size="9.5" font-weight="bold" fill="#C92A2A" font-family="Consolas, monospace">PK</text>
+<text x="730" y="416" font-size="11.5" fill="#212529" font-family="Consolas, monospace">user_id  (HASH)</text>
+<line x1="726" y1="420" x2="1014" y2="420" stroke="#F1F3F5"/>
+<text x="730" y="432" font-size="11.5" fill="#495057" font-family="Consolas, monospace">invoice_id</text>
+<line x1="726" y1="436" x2="1014" y2="436" stroke="#F1F3F5"/>
+<text x="730" y="448" font-size="11.5" fill="#495057" font-family="Consolas, monospace">customer_id</text>
+<line x1="726" y1="452" x2="1014" y2="452" stroke="#F1F3F5"/>
+<text x="730" y="464" font-size="11.5" fill="#495057" font-family="Consolas, monospace">items [L]</text>
+<line x1="726" y1="468" x2="1014" y2="468" stroke="#F1F3F5"/>
+<text x="730" y="480" font-size="11.5" fill="#495057" font-family="Consolas, monospace">step</text>
+<line x1="726" y1="484" x2="1014" y2="484" stroke="#F1F3F5"/>
+<text x="730" y="496" font-size="11.5" fill="#495057" font-family="Consolas, monospace">updated_at</text>
+<line x1="726" y1="500" x2="1014" y2="500" stroke="#F1F3F5"/>
+<text x="1012" y="512" text-anchor="end" font-size="9.5" font-weight="bold" fill="#0B7285" font-family="Consolas, monospace">TTL</text>
+<text x="730" y="512" font-size="11.5" fill="#212529" font-family="Consolas, monospace">ttl  (epoch seg)</text>
+<rect x="20" y="80" width="280" height="30" rx="5" fill="#FFF4E6" stroke="#E8590C" stroke-width="1"/>
+<text x="30" y="99" font-size="11" fill="#7C2D12" font-family="Segoe UI, Arial">writeAudit() — cada mutacion · PutItem</text>
+<line x1="300" y1="95.0" x2="340" y2="103" stroke="#E8590C" stroke-width="1.3" marker-end="url(#arr)"/>
+<rect x="20" y="124" width="280" height="30" rx="5" fill="#FFF4E6" stroke="#E8590C" stroke-width="1"/>
+<text x="30" y="143" font-size="11" fill="#7C2D12" font-family="Segoe UI, Arial">AuditPage feed global · Query GSI feed_pk</text>
+<line x1="300" y1="139.0" x2="340" y2="140" stroke="#E8590C" stroke-width="1.3" marker-end="url(#arr)" stroke-dasharray="6 4"/>
+<rect x="20" y="168" width="280" height="30" rx="5" fill="#FFF4E6" stroke="#E8590C" stroke-width="1"/>
+<text x="30" y="187" font-size="11" fill="#7C2D12" font-family="Segoe UI, Arial">Auditoria por usuario · Query GSI user_id</text>
+<line x1="300" y1="183.0" x2="340" y2="177" stroke="#E8590C" stroke-width="1.3" marker-end="url(#arr)" stroke-dasharray="6 4"/>
+<rect x="20" y="212" width="280" height="30" rx="5" fill="#FFF4E6" stroke="#E8590C" stroke-width="1"/>
+<text x="30" y="231" font-size="11" fill="#7C2D12" font-family="Segoe UI, Arial">Historial de UNA entidad · Query PK</text>
+<line x1="300" y1="227.0" x2="340" y2="213" stroke="#E8590C" stroke-width="1.3" marker-end="url(#arr)"/>
+<rect x="20" y="282" width="280" height="30" rx="5" fill="#FFF4E6" stroke="#E8590C" stroke-width="1"/>
+<text x="30" y="301" font-size="11" fill="#7C2D12" font-family="Segoe UI, Arial">emitir / pagar / cancelar · PutItem</text>
+<line x1="300" y1="297.0" x2="720" y2="180" stroke="#E8590C" stroke-width="1.3" marker-end="url(#arr)"/>
+<rect x="20" y="326" width="280" height="30" rx="5" fill="#FFF4E6" stroke="#E8590C" stroke-width="1"/>
+<text x="30" y="345" font-size="11" fill="#7C2D12" font-family="Segoe UI, Arial">Timeline de la factura · Query PK</text>
+<line x1="300" y1="341.0" x2="720" y2="192" stroke="#E8590C" stroke-width="1.3" marker-end="url(#arr)"/>
+<rect x="20" y="402" width="280" height="30" rx="5" fill="#FFF4E6" stroke="#E8590C" stroke-width="1"/>
+<text x="30" y="421" font-size="11" fill="#7C2D12" font-family="Segoe UI, Arial">login / validar sesion · Put+GetItem</text>
+<line x1="300" y1="417.0" x2="340" y2="422" stroke="#E8590C" stroke-width="1.3" marker-end="url(#arr)"/>
+<rect x="20" y="446" width="280" height="30" rx="5" fill="#FFF4E6" stroke="#E8590C" stroke-width="1"/>
+<text x="30" y="465" font-size="11" fill="#7C2D12" font-family="Segoe UI, Arial">Revocar todas las sesiones · Query GSI</text>
+<line x1="300" y1="461.0" x2="340" y2="459" stroke="#E8590C" stroke-width="1.3" marker-end="url(#arr)" stroke-dasharray="6 4"/>
+<rect x="20" y="518" width="280" height="30" rx="5" fill="#FFF4E6" stroke="#E8590C" stroke-width="1"/>
+<text x="30" y="537" font-size="11" fill="#7C2D12" font-family="Segoe UI, Arial">builderStore guardar · PutItem</text>
+<line x1="300" y1="533.0" x2="720" y2="470" stroke="#E8590C" stroke-width="1.3" marker-end="url(#arr)"/>
+<rect x="20" y="562" width="280" height="30" rx="5" fill="#FFF4E6" stroke="#E8590C" stroke-width="1"/>
+<text x="30" y="581" font-size="11" fill="#7C2D12" font-family="Segoe UI, Arial">Reanudar / borrar carrito · Get+Delete</text>
+<line x1="300" y1="577.0" x2="720" y2="482" stroke="#E8590C" stroke-width="1.3" marker-end="url(#arr)"/>
+<text x="20" y="42" font-size="12" font-weight="bold" fill="#212529" font-family="Segoe UI, Arial">Operaciones del frontend</text>
+<text x="340" y="42" font-size="12" font-weight="bold" fill="#212529" font-family="Segoe UI, Arial">Tablas DynamoDB (PK/SK/GSI/TTL)</text>
+<line x1="40" y1="630" x2="1080" y2="630" stroke="#DEE2E6"/>
+<text x="40" y="652" font-size="11.5" fill="#495057" font-family="Segoe UI, Arial">Solido = acceso por clave principal · Punteado = acceso via GSI · Ninguna tabla replica datos del relacional (RDS)</text>
+</svg>
