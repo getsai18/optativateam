@@ -1,12 +1,9 @@
 -- =============================================================================
 -- Sistema de Facturación - Esquema relacional (Amazon RDS for MySQL 8.0)
--- Archivo: 01_schema.sql
+-- Archivo: mysql.sql
 -- Fuente de verdad: frontend/src (domain.ts, mocks, servicios de cada módulo)
--- Mismo modelo lógico que la carpeta hermana "../RDS(Oracle)"
--- (14 tablas); Oracle y MySQL son motores ALTERNATIVOS: se despliega uno por
--- entorno, nunca ambos a la vez.
+-- Mismo modelo lógico que "../RDS(Oracle)/oracle.sql" (14 tablas).
 -- Requiere MySQL 8.0.16+ (CHECK ejecutados de forma efectiva).
--- Orden de ejecución: 01_schema.sql -> 02_seed_test_data.sql -> 04_procedures.sql
 -- =============================================================================
 
 CREATE DATABASE IF NOT EXISTS billing_db
@@ -49,8 +46,7 @@ CREATE TABLE customer (
     created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    UNIQUE KEY uq_customer_tax (tax_id),
-    UNIQUE KEY uq_customer_email (email),
+    UNIQUE KEY uq_customer_tax (tax_id),   -- el frontend solo valida unicidad de taxId
     CONSTRAINT ck_customer_active CHECK (active IN (0, 1))
 ) ENGINE=InnoDB;
 
@@ -118,14 +114,18 @@ CREATE TABLE tax_history (
     valid_to    DATE              NULL,          -- NULL = tasa vigente
     changed_by  INT UNSIGNED      NULL,
     created_at  DATETIME          NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- 1 mientras el periodo esta abierto, NULL si esta cerrado. Junto con el UNIQUE
+    -- de abajo garantiza A LO SUMO UN periodo abierto por impuesto (en MySQL un
+    -- UNIQUE con NULL no lo impide por si solo).
+    is_open     TINYINT GENERATED ALWAYS AS (IF(valid_to IS NULL, 1, NULL)) STORED,
     PRIMARY KEY (id),
+    UNIQUE KEY uq_tax_history_open (tax_id, is_open),
     KEY ix_tax_history_tax_dates (tax_id, valid_from, valid_to),
     CONSTRAINT fk_tax_history_tax  FOREIGN KEY (tax_id)     REFERENCES tax (id),
     CONSTRAINT fk_tax_history_user FOREIGN KEY (changed_by) REFERENCES app_user (id),
     CONSTRAINT ck_tax_history_rate  CHECK (rate >= 0 AND rate <= 1),
     CONSTRAINT ck_tax_history_dates CHECK (valid_to IS NULL OR valid_to >= valid_from),
-    -- Evita dos periodos cerrados con la misma fecha fin (la unicidad del
-    -- periodo abierto la garantiza la API/SP al cerrar el anterior)
+    -- Evita dos periodos cerrados con la misma fecha fin
     CONSTRAINT uq_tax_history_end  UNIQUE (tax_id, valid_to)
 ) ENGINE=InnoDB;
 
@@ -249,6 +249,7 @@ CREATE TABLE invoice_detail_tax (
     id                INT UNSIGNED     NOT NULL AUTO_INCREMENT,
     invoice_detail_id INT UNSIGNED     NOT NULL,
     tax_id            SMALLINT UNSIGNED NOT NULL,
+    tax_code          VARCHAR(20)      NOT NULL,   -- snapshot (InvoiceLineTax.code)
     rate              DECIMAL(6,4)     NOT NULL,   -- tasa vigente al calcular
     amount            DECIMAL(12,2)    NOT NULL,
     PRIMARY KEY (id),
