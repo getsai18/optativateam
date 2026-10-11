@@ -7,7 +7,7 @@ No replica datos de MySQL ni de Oracle: solo eventos, sesiones y carritos.
 erDiagram
     billing_audit_log {
         string entity_key PK "HASH ej INVOICE-2 o CUSTOMER-1"
-        string event_ts SK "RANGE ISO-8601 con uuid"
+        string event_ts "SK RANGE ISO-8601 con uuid"
         string feed_pk "GSI feed constante AUDIT"
         string user_id "GSI usuario"
         string action "ej invoice.issue"
@@ -17,7 +17,7 @@ erDiagram
     }
     billing_invoice_event {
         string invoice_id PK "HASH"
-        string event_ts SK "RANGE ISO-8601 con uuid"
+        string event_ts "SK RANGE ISO-8601 con uuid"
         string event_type "CREATED ISSUED PAID CANCELLED"
         string from_status
         string to_status
