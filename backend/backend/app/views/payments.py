@@ -11,9 +11,10 @@ bp = Blueprint("payments", __name__)
 _METHODS = ("CARD", "TRANSFER", "CASH")
 
 
-def _load_invoice(invoice_id: str):
+def _load_invoice(invoice_id: str, lock: bool = False):
     db_id = repos.decode_or_none("inv", invoice_id)
-    invoice = repos.find_invoice(db_id) if db_id is not None else None
+    finder = repos.find_invoice_for_update if lock else repos.find_invoice
+    invoice = finder(db_id) if db_id is not None else None
     if invoice is None:
         raise not_found("Invoice not found")
     return db_id, invoice
@@ -34,7 +35,7 @@ def register_payment(invoice_id: str):
     method = body.get("method")
     if method not in _METHODS:
         raise validation("Invalid payment method")
-    db_id, invoice = _load_invoice(invoice_id)
+    db_id, invoice = _load_invoice(invoice_id, lock=True)
     if not can_pay_invoice(invoice["status"]):
         raise conflict("Only issued invoices can be paid")
     if repos.count_payments(db_id) > 0:

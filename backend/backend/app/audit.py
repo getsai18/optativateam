@@ -1,3 +1,4 @@
+import json
 import logging
 import uuid
 
@@ -32,19 +33,17 @@ def write_entry(claims: dict, action: str, entity_type: str, entity_id: str) -> 
         except Exception as exc:
             if current_app.config.get("AUDIT_REQUIRED"):
                 raise
-            logger.warning("audit write to DynamoDB failed, using memory fallback: %s", exc)
+            # La memoria de una Lambda se pierde: se deja el evento completo en CloudWatch Logs
+            # para poder reconstruirlo, en vez de guardarlo en un buffer que nadie leerá.
+            logger.error("AUDIT_WRITE_FAILED %s", json.dumps({"entry": entry, "error": str(exc)}))
+            return
     _memory.append(entry)
 
 
 def list_entries() -> list[dict]:
     backend = current_app.config.get("AUDIT_BACKEND", "memory")
     if backend == "dynamodb":
-        try:
-            return _query_dynamodb()
-        except Exception as exc:
-            if current_app.config.get("AUDIT_REQUIRED"):
-                raise
-            logger.warning("audit read from DynamoDB failed, using memory fallback: %s", exc)
+        return _query_dynamodb()  # si falla, error 500: mejor que mostrar una auditoría vacía
     return sorted(_memory, key=lambda e: e["timestamp"], reverse=True)
 
 
@@ -113,7 +112,8 @@ def _put_dynamodb(entry: dict, entity_type: str, entity_id: str) -> None:
     _table().put_item(
         Item={
             "entity_key": f"{entity_type.upper()}#{entity_id}",
-            "event_ts": entry["timestamp"],
+            # "<ISO>#<id>": dos eventos del mismo milisegundo sobre la misma entidad no se pisan.
+            "event_ts": f"{entry['timestamp']}#{entry['id']}",
             "feed_pk": "AUDIT",
             "entry_id": entry["id"],
             "user_id": entry["userId"],

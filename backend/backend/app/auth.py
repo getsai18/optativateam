@@ -42,7 +42,9 @@ def decode_token(token: str, secret: str) -> dict | None:
     return claims
 
 
-def verify_password(stored_hash: str, password: str, demo_password: str = "demo1234") -> bool:
+def verify_password(stored_hash: str, password: str, demo_password: str = "") -> bool:
+    """bcrypt estricto. `demo_password` solo se acepta cuando el hash guardado NO es bcrypt
+    (marcador del seed) y el llamador lo pasa explícitamente (ALLOW_DEMO_LOGIN)."""
     if not stored_hash or not isinstance(password, str):
         return False
     valid_bcrypt = stored_hash.startswith("$2") and len(stored_hash) == 60
@@ -51,6 +53,8 @@ def verify_password(stored_hash: str, password: str, demo_password: str = "demo1
             return bcrypt.checkpw(password.encode("utf-8"), stored_hash.encode("utf-8"))
         except ValueError:
             return False
+    if not demo_password:
+        return False
     return hmac.compare_digest(demo_password, password)
 
 

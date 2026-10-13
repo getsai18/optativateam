@@ -64,6 +64,7 @@ def tax_universe() -> tuple[dict, dict]:
     for row in repos.list_taxes():
         taxes[encode_id("tax", row["id"])] = {
             "code": row["code"],
+            "name": row["name"],
             "current_rate": db.to_number(row["current_rate"]),
         }
     history: dict[str, list[dict]] = {}

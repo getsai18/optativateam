@@ -6,7 +6,18 @@ from . import db as database
 
 
 def _conn() -> database.Connection:
-    return database.get_conn(current_app.config)
+    """Base de facturación (MySQL): usuarios, clientes, emisor, facturas, pagos, folios."""
+    return database.get_conn(current_app.config, database.BILLING)
+
+
+def _catalog() -> database.Connection:
+    """Base de catálogo (Postgres): impuestos, historial, servicios y características."""
+    return database.get_conn(current_app.config, database.CATALOG)
+
+
+def _flag(value) -> str:
+    """Booleano como texto '1'/'0': Postgres lo convierte al tipo de la columna (BOOLEAN o SMALLINT)."""
+    return "1" if value else "0"
 
 
 def _in_clause(prefix: str, values: list[int]) -> tuple[str, dict]:
@@ -130,40 +141,40 @@ def ensure_issuer(legal_name, tax_id, address) -> dict:
 
 
 def list_taxes() -> list[dict]:
-    return _conn().all("SELECT * FROM tax ORDER BY id")
+    return _catalog().all("SELECT * FROM tax ORDER BY id")
 
 
 def find_tax(tax_id: int) -> dict | None:
-    return _conn().one("SELECT * FROM tax WHERE id = :id", {"id": tax_id})
+    return _catalog().one("SELECT * FROM tax WHERE id = :id", {"id": tax_id})
 
 
 def list_tax_history() -> list[dict]:
-    return _conn().all("SELECT * FROM tax_history ORDER BY tax_id, valid_from, id")
+    return _catalog().all("SELECT * FROM tax_history ORDER BY tax_id, valid_from, id")
 
 
 def tax_history_for(tax_id: int) -> list[dict]:
-    return _conn().all(
+    return _catalog().all(
         "SELECT * FROM tax_history WHERE tax_id = :tax_id ORDER BY valid_from, id",
         {"tax_id": tax_id},
     )
 
 
 def open_tax_period(tax_id: int) -> dict | None:
-    return _conn().one(
+    return _catalog().one(
         "SELECT * FROM tax_history WHERE tax_id = :tax_id AND valid_to IS NULL ORDER BY valid_from",
         {"tax_id": tax_id},
     )
 
 
 def close_tax_period(tax_id: int, valid_to: datetime.date) -> int:
-    return _conn().execute(
+    return _catalog().execute(
         "UPDATE tax_history SET valid_to = :valid_to WHERE tax_id = :tax_id AND valid_to IS NULL",
         {"tax_id": tax_id, "valid_to": valid_to},
     )
 
 
 def insert_tax_history(tax_id, rate, valid_from: datetime.date, changed_by) -> int:
-    return _conn().insert(
+    return _catalog().insert(
         "INSERT INTO tax_history (tax_id, rate, valid_from, valid_to, changed_by)"
         " VALUES (:tax_id, :rate, :valid_from, NULL, :changed_by)",
         {"tax_id": tax_id, "rate": rate, "valid_from": valid_from, "changed_by": changed_by},
@@ -171,19 +182,19 @@ def insert_tax_history(tax_id, rate, valid_from: datetime.date, changed_by) -> i
 
 
 def update_tax_current_rate(tax_id, rate) -> int:
-    return _conn().execute("UPDATE tax SET current_rate = :rate WHERE id = :id", {"id": tax_id, "rate": rate})
+    return _catalog().execute("UPDATE tax SET current_rate = :rate WHERE id = :id", {"id": tax_id, "rate": rate})
 
 
 def list_services() -> list[dict]:
-    return _conn().all("SELECT * FROM service ORDER BY id")
+    return _catalog().all("SELECT * FROM service ORDER BY id")
 
 
 def find_service(service_id: int) -> dict | None:
-    return _conn().one("SELECT * FROM service WHERE id = :id", {"id": service_id})
+    return _catalog().one("SELECT * FROM service WHERE id = :id", {"id": service_id})
 
 
 def service_code_taken(code: str, exclude_id: int = 0) -> bool:
-    row = _conn().one(
+    row = _catalog().one(
         "SELECT COUNT(*) AS c FROM service WHERE LOWER(code) = LOWER(:code) AND id <> :exclude_id",
         {"code": code, "exclude_id": exclude_id},
     )
@@ -191,7 +202,7 @@ def service_code_taken(code: str, exclude_id: int = 0) -> bool:
 
 
 def insert_service(code, name, description, base_price, category, active) -> int:
-    return _conn().insert(
+    return _catalog().insert(
         "INSERT INTO service (code, name, description, base_price, category, active)"
         " VALUES (:code, :name, :description, :base_price, :category, :active)",
         {
@@ -200,13 +211,13 @@ def insert_service(code, name, description, base_price, category, active) -> int
             "description": description,
             "base_price": base_price,
             "category": category,
-            "active": int(active),
+            "active": _flag(active),
         },
     )
 
 
 def update_service(service_id, code, name, description, base_price, category, active) -> int:
-    return _conn().execute(
+    return _catalog().execute(
         "UPDATE service SET code = :code, name = :name, description = :description,"
         " base_price = :base_price, category = :category, active = :active WHERE id = :id",
         {
@@ -216,13 +227,13 @@ def update_service(service_id, code, name, description, base_price, category, ac
             "description": description,
             "base_price": base_price,
             "category": category,
-            "active": int(active),
+            "active": _flag(active),
         },
     )
 
 
 def replace_service_taxes(service_id: int, tax_ids: list[int]) -> None:
-    conn = _conn()
+    conn = _catalog()
     conn.execute("DELETE FROM service_tax WHERE service_id = :service_id", {"service_id": service_id})
     for tax_id in tax_ids:
         conn.execute(
@@ -232,7 +243,7 @@ def replace_service_taxes(service_id: int, tax_ids: list[int]) -> None:
 
 
 def list_service_tax_ids(service_id: int) -> list[int]:
-    rows = _conn().all("SELECT tax_id FROM service_tax WHERE service_id = :service_id ORDER BY tax_id", {"service_id": service_id})
+    rows = _catalog().all("SELECT tax_id FROM service_tax WHERE service_id = :service_id ORDER BY tax_id", {"service_id": service_id})
     return [int(r["tax_id"]) for r in rows]
 
 
@@ -240,7 +251,7 @@ def service_tax_map(service_ids: list[int]) -> dict[int, list[int]]:
     if not service_ids:
         return {}
     placeholders, params = _in_clause("s", service_ids)
-    rows = _conn().all(
+    rows = _catalog().all(
         f"SELECT service_id, tax_id FROM service_tax WHERE service_id IN ({placeholders}) ORDER BY service_id, tax_id",
         params,
     )
@@ -251,7 +262,7 @@ def service_tax_map(service_ids: list[int]) -> dict[int, list[int]]:
 
 
 def replace_service_features(service_id: int, features: list[tuple[int, str]]) -> None:
-    conn = _conn()
+    conn = _catalog()
     conn.execute("DELETE FROM service_feature WHERE service_id = :service_id", {"service_id": service_id})
     for feature_id, value in features:
         conn.execute(
@@ -264,7 +275,7 @@ def service_feature_map(service_ids: list[int]) -> dict[int, list[dict]]:
     if not service_ids:
         return {}
     placeholders, params = _in_clause("s", service_ids)
-    rows = _conn().all(
+    rows = _catalog().all(
         f"SELECT service_id, feature_id, value FROM service_feature WHERE service_id IN ({placeholders})"
         " ORDER BY service_id, id",
         params,
@@ -278,15 +289,15 @@ def service_feature_map(service_ids: list[int]) -> dict[int, list[dict]]:
 
 
 def list_features() -> list[dict]:
-    return _conn().all("SELECT * FROM feature ORDER BY id")
+    return _catalog().all("SELECT * FROM feature ORDER BY id")
 
 
 def find_feature(feature_id: int) -> dict | None:
-    return _conn().one("SELECT * FROM feature WHERE id = :id", {"id": feature_id})
+    return _catalog().one("SELECT * FROM feature WHERE id = :id", {"id": feature_id})
 
 
 def feature_name_taken(name: str, exclude_id: int = 0) -> bool:
-    row = _conn().one(
+    row = _catalog().one(
         "SELECT COUNT(*) AS c FROM feature WHERE LOWER(name) = LOWER(:name) AND id <> :exclude_id",
         {"name": name, "exclude_id": exclude_id},
     )
@@ -294,21 +305,21 @@ def feature_name_taken(name: str, exclude_id: int = 0) -> bool:
 
 
 def insert_feature(name, description, unit) -> int:
-    return _conn().insert(
+    return _catalog().insert(
         "INSERT INTO feature (name, description, unit) VALUES (:name, :description, :unit)",
         {"name": name, "description": description, "unit": unit},
     )
 
 
 def update_feature(feature_id, name, description, unit) -> int:
-    return _conn().execute(
+    return _catalog().execute(
         "UPDATE feature SET name = :name, description = :description, unit = :unit WHERE id = :id",
         {"id": feature_id, "name": name, "description": description, "unit": unit},
     )
 
 
 def feature_usage_count(feature_id: int) -> int:
-    row = _conn().one(
+    row = _catalog().one(
         "SELECT COUNT(*) AS c FROM service_feature WHERE feature_id = :feature_id",
         {"feature_id": feature_id},
     )
@@ -316,7 +327,7 @@ def feature_usage_count(feature_id: int) -> int:
 
 
 def delete_feature(feature_id: int) -> int:
-    return _conn().execute("DELETE FROM feature WHERE id = :id", {"id": feature_id})
+    return _catalog().execute("DELETE FROM feature WHERE id = :id", {"id": feature_id})
 
 
 def list_invoices() -> list[dict]:
@@ -333,6 +344,11 @@ def list_invoices_for_customer(customer_id: int) -> list[dict]:
 
 def find_invoice(invoice_id: int) -> dict | None:
     return _conn().one("SELECT * FROM invoice WHERE id = :id", {"id": invoice_id})
+
+
+def find_invoice_for_update(invoice_id: int) -> dict | None:
+    """Bloquea la fila hasta el commit: serializa emitir/pagar/cancelar/editar la misma factura."""
+    return _conn().one("SELECT * FROM invoice WHERE id = :id FOR UPDATE", {"id": invoice_id})
 
 
 def insert_invoice(issuer_id, customer_id, created_by, receiver_name, receiver_tax_id, receiver_address,
@@ -428,9 +444,10 @@ def detail_taxes_for(detail_ids: list[int]) -> list[dict]:
     if not detail_ids:
         return []
     placeholders, params = _in_clause("d", detail_ids)
+    # `tax` vive en otra base: el código sale del snapshot guardado en la propia línea.
     return _conn().all(
-        f"SELECT d.invoice_detail_id, d.tax_id, d.rate, d.amount, t.code FROM invoice_detail_tax d"
-        f" JOIN tax t ON t.id = d.tax_id WHERE d.invoice_detail_id IN ({placeholders}) ORDER BY d.id",
+        f"SELECT d.invoice_detail_id, d.tax_id, d.rate, d.amount, d.tax_code AS code"
+        f" FROM invoice_detail_tax d WHERE d.invoice_detail_id IN ({placeholders}) ORDER BY d.id",
         params,
     )
 
@@ -464,11 +481,18 @@ def insert_detail(invoice_id, service_id, service_name, quantity, unit_price,
     )
 
 
-def insert_detail_tax(detail_id, tax_id, rate, amount) -> int:
+def insert_detail_tax(detail_id, tax_id, rate, amount, tax_code, tax_name) -> int:
     return _conn().insert(
-        "INSERT INTO invoice_detail_tax (invoice_detail_id, tax_id, rate, amount)"
-        " VALUES (:detail_id, :tax_id, :rate, :amount)",
-        {"detail_id": detail_id, "tax_id": tax_id, "rate": rate, "amount": amount},
+        "INSERT INTO invoice_detail_tax (invoice_detail_id, tax_id, tax_code, tax_name, rate, amount)"
+        " VALUES (:detail_id, :tax_id, :tax_code, :tax_name, :rate, :amount)",
+        {
+            "detail_id": detail_id,
+            "tax_id": tax_id,
+            "tax_code": tax_code,
+            "tax_name": tax_name,
+            "rate": rate,
+            "amount": amount,
+        },
     )
 
 
@@ -535,12 +559,16 @@ _LABEL_SOURCES = {
 }
 
 
+_CATALOG_KINDS = ("service", "feature", "tax")
+
+
 def fetch_labels(kind: str, db_ids: list[int]) -> dict[int, str]:
     if not db_ids or kind not in _LABEL_SOURCES:
         return {}
     table, expression = _LABEL_SOURCES[kind]
     placeholders, params = _in_clause("l", db_ids)
-    rows = _conn().all(
+    conn = _catalog() if kind in _CATALOG_KINDS else _conn()
+    rows = conn.all(
         f"SELECT id, {expression} AS label FROM {table} WHERE id IN ({placeholders})",
         params,
     )

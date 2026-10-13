@@ -78,7 +78,20 @@ invoices are computed by the same function as live ones (the one deliberate deep
 - Invoice lists show a money summary (outstanding / collected / drafts; for customers: amount due / paid to date). The invoice detail has a side panel with the amount, a lifecycle timeline, the payment and the customer.
 - Dependencies are limited to the requested stack; fonts are bundled via `@fontsource` (no external requests).
 
-## Plugging in the real backend
+## Backend real (API Gateway)
 
-Replace the body of each function in `features/*/services/*.ts` with an HTTP call (keep signatures), and swap
-`shared/lib/session.ts` / `storage.ts` for the real token handling. `mocks/` can then be deleted.
+Los `services/*.ts` ya llaman a la API a través de `src/shared/lib/http.ts`. Los `mocks/` quedan solo
+como datos de prueba para los tests (`seed.test.ts`); la app no los usa.
+
+```bash
+cp .env.example .env     # VITE_API_URL=https://<id>.execute-api.<region>.amazonaws.com
+npm run build            # genera dist/
+aws s3 sync dist/ s3://<bucket> --delete
+```
+
+- Sin `VITE_API_URL` la app muestra "API URL is not configured".
+- Los errores del backend (`{ code, message }`) se convierten en `ApiError` con los mismos códigos de antes.
+  Un 401/403 sin `code` (rechazo del authorizer de API Gateway) se trata como sesión expirada.
+- La app usa `BrowserRouter`: en S3 (static website hosting) configura el **error document** como
+  `index.html`, o las URL profundas (`/invoices/inv_3`) darán 404 al recargar.
+- La API debe permitir CORS desde el dominio del bucket (`Authorization` y `Content-Type`).

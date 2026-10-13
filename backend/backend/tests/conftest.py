@@ -16,6 +16,7 @@ def app():
             "JWT_SECRET": "test-secret-0123456789-0123456789-ab",
             "AUDIT_BACKEND": "memory",
             "DEMO_PASSWORD": "demo1234",
+            "ALLOW_DEMO_LOGIN": True,
         }
     )
     yield application
@@ -506,7 +507,7 @@ class FakeStore:
             for row in store.detail_taxes.values():
                 if row["invoice_detail_id"] in wanted:
                     item = dict(row)
-                    item["code"] = store.taxes[row["tax_id"]]["code"]
+                    item["code"] = row["tax_code"]  # snapshot, igual que el SQL real
                     rows.append(item)
             return sorted(rows, key=lambda r: r["id"])
 
@@ -534,12 +535,14 @@ class FakeStore:
             }
             return detail_id
 
-        def insert_detail_tax(detail_id, tax_id, rate, amount):
+        def insert_detail_tax(detail_id, tax_id, rate, amount, tax_code, tax_name):
             entry_id = store._next("dtax")
             store.detail_taxes[entry_id] = {
                 "id": entry_id,
                 "invoice_detail_id": detail_id,
                 "tax_id": tax_id,
+                "tax_code": tax_code,
+                "tax_name": tax_name,
                 "rate": rate,
                 "amount": amount,
             }
@@ -644,6 +647,7 @@ class FakeStore:
             "list_invoices": list_invoices,
             "list_invoices_for_customer": list_invoices_for_customer,
             "find_invoice": find_invoice,
+            "find_invoice_for_update": find_invoice,
             "insert_invoice": insert_invoice,
             "update_invoice_draft": update_invoice_draft,
             "set_invoice_totals": set_invoice_totals,

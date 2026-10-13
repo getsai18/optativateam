@@ -115,7 +115,9 @@ def calculate_totals(lines: list[dict], taxes: dict, history: dict, as_of) -> di
                 breakdown[tax_id] = entry
             entry["base"] = round2(entry["base"] + line_subtotal)
             entry["amount"] = round2(entry["amount"] + amount)
-            line_taxes.append({"tax_id": tax_id, "code": tax["code"], "rate": rate, "amount": amount})
+            line_taxes.append(
+                {"tax_id": tax_id, "code": tax["code"], "name": tax.get("name", tax["code"]), "rate": rate, "amount": amount}
+            )
         tax_amount = round2(sum(t["amount"] for t in line_taxes))
         computed.append(
             {

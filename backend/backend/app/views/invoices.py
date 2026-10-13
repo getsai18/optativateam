@@ -19,9 +19,10 @@ from .common import assert_invoice_access, issuer_row, json_body, tax_universe
 bp = Blueprint("invoices", __name__)
 
 
-def _load_invoice(invoice_id: str):
+def _load_invoice(invoice_id: str, lock: bool = False):
     db_id = repos.decode_or_none("inv", invoice_id)
-    invoice = repos.find_invoice(db_id) if db_id is not None else None
+    finder = repos.find_invoice_for_update if lock else repos.find_invoice
+    invoice = finder(db_id) if db_id is not None else None
     if invoice is None:
         raise not_found("Invoice not found")
     return db_id, invoice
@@ -78,15 +79,16 @@ def _insert_details(invoice_id: int, totals: dict) -> None:
             line["line_total"],
         )
         for tax in line["taxes"]:
-            repos.insert_detail_tax(detail_id, decode_id("tax", tax["tax_id"]), tax["rate"], tax["amount"])
+            repos.insert_detail_tax(
+                detail_id, decode_id("tax", tax["tax_id"]), tax["rate"], tax["amount"], tax["code"], tax["name"]
+            )
 
 
 def _persist_draft(body: dict) -> tuple[int, str]:
     customer, totals = _priced_draft(body)
     invoice_ref = body.get("id")
     if invoice_ref:
-        invoice_id, _ = _load_invoice(invoice_ref)
-        invoice = repos.find_invoice(invoice_id)
+        invoice_id, invoice = _load_invoice(invoice_ref, lock=True)
         if not can_edit_invoice(invoice["status"]):
             raise conflict("Only draft invoices can be edited")
         repos.update_invoice_draft(
@@ -120,7 +122,7 @@ def _persist_draft(body: dict) -> tuple[int, str]:
 
 
 def _stamp(invoice_id: int) -> None:
-    invoice = repos.find_invoice(invoice_id)
+    invoice = repos.find_invoice_for_update(invoice_id)
     if invoice is None:
         raise not_found("Invoice not found")
     if not can_issue_invoice(invoice["status"]):
@@ -154,7 +156,9 @@ def _stamp(invoice_id: int) -> None:
         repos.update_detail_amounts(detail_id, line["line_subtotal"], line["tax_amount"], line["line_total"])
         repos.delete_detail_taxes(detail_id)
         for tax in line["taxes"]:
-            repos.insert_detail_tax(detail_id, decode_id("tax", tax["tax_id"]), tax["rate"], tax["amount"])
+            repos.insert_detail_tax(
+                detail_id, decode_id("tax", tax["tax_id"]), tax["rate"], tax["amount"], tax["code"], tax["name"]
+            )
     repos.set_invoice_totals(invoice_id, totals["subtotal"], totals["tax_total"], totals["total"])
     year = now.year
     folio_number = repos.next_folio(year)
@@ -210,7 +214,7 @@ def update_invoice(invoice_id: str):
 @bp.post("/invoices/<invoice_id>/issue")
 @auth.require_role("ADMIN", "BILLER")
 def issue_invoice(invoice_id: str):
-    db_id, _ = _load_invoice(invoice_id)
+    db_id, _ = _load_invoice(invoice_id, lock=True)
     _stamp(db_id)
     db.commit()
     audit.write_entry(g.claims, "invoice.issue", "invoice", encode_id("inv", db_id))
@@ -224,7 +228,7 @@ def cancel_invoice(invoice_id: str):
     reason = body.get("reason")
     if not isinstance(reason, str) or len(reason.strip()) < 5:
         raise validation("A cancellation reason is required")
-    db_id, invoice = _load_invoice(invoice_id)
+    db_id, invoice = _load_invoice(invoice_id, lock=True)
     if not can_cancel_invoice(invoice["status"]):
         raise conflict("Paid or already cancelled invoices cannot be cancelled")
     repos.set_invoice_cancelled(db_id, utcnow(), reason.strip())
@@ -236,7 +240,7 @@ def cancel_invoice(invoice_id: str):
 @bp.delete("/invoices/<invoice_id>")
 @auth.require_role("ADMIN", "BILLER")
 def delete_invoice(invoice_id: str):
-    db_id, invoice = _load_invoice(invoice_id)
+    db_id, invoice = _load_invoice(invoice_id, lock=True)
     if not can_delete_invoice(invoice["status"]):
         raise conflict("Only draft invoices can be deleted")
     repos.delete_invoice(db_id)

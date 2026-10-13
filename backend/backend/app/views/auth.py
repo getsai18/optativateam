@@ -17,9 +17,8 @@ def login():
     if not isinstance(email, str) or not isinstance(password, str):
         raise ApiError("UNAUTHORIZED", "Invalid email or password")
     user = repos.find_user_by_login(email.strip().lower())
-    if user is None or not auth.verify_password(
-        user["password_hash"], password, current_app.config["DEMO_PASSWORD"]
-    ):
+    demo = current_app.config["DEMO_PASSWORD"] if current_app.config["ALLOW_DEMO_LOGIN"] else ""
+    if user is None or not auth.verify_password(user["password_hash"], password, demo):
         raise ApiError("UNAUTHORIZED", "Invalid email or password")
     if not user["active"]:
         raise ApiError("FORBIDDEN", "This account has been deactivated")

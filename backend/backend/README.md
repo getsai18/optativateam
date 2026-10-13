@@ -6,7 +6,7 @@ mock, roles `ADMIN` / `BILLER` / `CUSTOMER` y máquina de estados de factura
 `DRAFT → ISSUED → PAID`, `DRAFT|ISSUED → CANCELLED`.
 
 ```
-Frontend (React) → API Gateway → Lambda (Flask, este backend) → RDS MySQL/Oracle + DynamoDB
+Frontend (React) → API Gateway → Lambda (Flask, este backend) → RDS MySQL (facturación) + RDS Postgres (catálogo) + DynamoDB
 ```
 
 ## Estructura
@@ -20,7 +20,7 @@ backend/
 │   ├── errors.py         # ApiError (UNAUTHORIZED/FORBIDDEN/NOT_FOUND/VALIDATION/CONFLICT)
 │   ├── auth.py           # JWT (HS256, exp en epoch ms), decorators login_required/require_role
 │   ├── domain.py         # cálculos puros: round2, rate_on_date, calculate_totals, estados, ids
-│   ├── db.py             # conector MySQL (PyMySQL) / Oracle (oracledb), transacciones
+│   ├── db.py             # conectores MySQL (PyMySQL) / Postgres (psycopg) / Oracle, una conexión por rol
 │   ├── repos.py          # todas las consultas SQL
 │   ├── serializers.py    # filas -> JSON camelCase (ids str <-> PK num)
 │   ├── audit.py          # DynamoDB (billing_audit_log) con fallback en memoria
@@ -80,9 +80,9 @@ Copia `.env.example` a `.env`. Variables principales:
 
 | Variable | Descripción |
 |---|---|
-| `DB_ENGINE` | `mysql` (principal) u `oracle` |
-| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` | conexión RDS |
-| `DB_NAME` | `billing_db` (MySQL) · `DB_SERVICE_NAME` para el service name de Oracle |
+| `BILLING_DB_ENGINE/HOST/PORT/NAME/USER/PASSWORD` | RDS **MySQL** de facturación: `app_user`, `customer`, `issuer`, `invoice*`, `payment`, `folio_counter` (acepta también `DB_*` por compatibilidad) |
+| `CATALOG_DB_ENGINE/HOST/PORT/NAME/USER/PASSWORD` | RDS **Postgres** de catálogo: `tax`, `tax_history`, `service`, `feature`, `service_tax`, `service_feature`. Sin `CATALOG_DB_HOST` se usa la base de facturación (una sola base) |
+| `ALLOW_DEMO_LOGIN` | `false` por defecto. En `true` acepta `DEMO_PASSWORD` para usuarios cuyo hash no es bcrypt (solo desarrollo local) |
 | `JWT_SECRET` | obligatorio en producción (aleatorio ≥ 32 bytes) |
 | `SESSION_TTL_MS` | `1800000` (misma sesión que el frontend) |
 | `AUDIT_BACKEND` | `memory` (dev) o `dynamodb` (producción) |
@@ -92,8 +92,8 @@ Copia `.env.example` a `.env`. Variables principales:
 
 ## Puesta en marcha local
 
-1. Crear la base de datos con los scripts de `../../Bases de datos/RDS(MySQL)/`
-   (`load_all.sh` o `01_schema.sql → 02_seed → 04_procedures`), o de `RDS(Oracle)/` con `load_all.sql`.
+1. Crear la base de facturación con `../../Bases de datos/RDS(MySQL)/mysql.sql`
+   y ejecutar `Bases de datos/RDS(Postgres)/compat.sql` en el catálogo (agrega `tax_history.changed_by` y el índice de un solo periodo abierto).
 2. Para DynamoDB (opcional en dev): `../../Bases de datos/DynamoDB/create-tables.sh` y
    `AUDIT_BACKEND=dynamodb`.
 3. ```bash
@@ -128,7 +128,7 @@ docker run --rm -p 8000:8000 --env-file .env billing-api
 
 ```bash
 npm i -g serverless serverless-wsgi serverless-python-requirements
-export JWT_SECRET=... DB_HOST=... DB_USER=... DB_PASSWORD=... AUDIT_BACKEND=dynamodb
+export JWT_SECRET=... BILLING_DB_HOST=... BILLING_DB_USER=... BILLING_DB_PASSWORD=... CATALOG_DB_HOST=... CATALOG_DB_USER=... CATALOG_DB_PASSWORD=... AUDIT_BACKEND=dynamodb
 serverless deploy --stage dev --region us-east-1
 ```
 
