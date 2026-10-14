@@ -1,5 +1,7 @@
 import { create } from 'zustand';
+import { readToken } from '../../../shared/lib/session';
 import { localStore } from '../../../shared/lib/storage';
+import { clearCart, saveCart } from '../services/cartService';
 import type { BuilderLine } from '../types';
 
 const KEY = 'billing.invoiceBuilder.v1';
@@ -19,6 +21,7 @@ interface BuilderState extends BuilderData {
   removeService: (serviceId: string) => void;
   setStep: (step: number) => void;
   loadDraft: (data: { invoiceId: string; customerId: string; lines: BuilderLine[] }) => void;
+  hydrate: (data: BuilderData) => void;
   reset: () => void;
 }
 
@@ -46,11 +49,26 @@ export const useBuilderStore = create<BuilderState>((set) => ({
   removeService: (serviceId) => set((s) => ({ lines: s.lines.filter((l) => l.serviceId !== serviceId) })),
   setStep: (step) => set({ step }),
   loadDraft: ({ invoiceId, customerId, lines }) => set({ invoiceId, customerId, lines, step: 0 }),
+  hydrate: (data) => set({ ...data, step: Math.min(Math.max(data.step, 0), 3) }),
   reset: () => set({ ...EMPTY }),
 }));
 
+let syncTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Mirrors the cart to the AWS `cart` Lambda (debounced). Failures are ignored: localStorage stays the fallback. */
+function syncRemote(data: BuilderData, empty: boolean) {
+  if (!readToken()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    const request = empty ? clearCart() : saveCart(data);
+    request.catch(() => undefined);
+  }, 600);
+}
+
 useBuilderStore.subscribe((s) => {
   const { invoiceId, customerId, lines, step } = s;
-  if (!invoiceId && !customerId && lines.length === 0 && step === 0) localStore.remove(KEY);
+  const empty = !invoiceId && !customerId && lines.length === 0 && step === 0;
+  if (empty) localStore.remove(KEY);
   else localStore.set<BuilderData>(KEY, { invoiceId, customerId, lines, step });
+  syncRemote({ invoiceId, customerId, lines, step }, empty);
 });

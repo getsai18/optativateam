@@ -1,8 +1,12 @@
 import { ApiError, type ApiErrorCode } from './errors';
 import { readToken, requireClaims } from './session';
 
-/** Base URL of the API Gateway stage, e.g. https://abc123.execute-api.us-east-1.amazonaws.com/dev */
-const BASE_URL = ((import.meta.env.VITE_API_URL as string | undefined) ?? '').replace(/\/+$/, '');
+const trimUrl = (value: string | undefined) => (value ?? '').replace(/\/+$/, '');
+
+/** Local Flask backend, e.g. http://127.0.0.1:5000 */
+const BASE_URL = trimUrl(import.meta.env.VITE_API_URL as string | undefined);
+/** API Gateway that fronts the AWS Lambdas (authorizer + cart), e.g. https://abc123.execute-api.us-east-1.amazonaws.com */
+const LAMBDA_URL = trimUrl(import.meta.env.VITE_LAMBDA_URL as string | undefined);
 
 const KNOWN_CODES: readonly ApiErrorCode[] = ['UNAUTHORIZED', 'FORBIDDEN', 'NOT_FOUND', 'VALIDATION', 'CONFLICT', 'INTERNAL'];
 
@@ -21,19 +25,21 @@ interface RequestOptions {
   query?: Record<string, string | number | boolean | undefined>;
   /** false only for POST /auth/login */
   auth?: boolean;
+  /** 'api' = local Flask backend (default), 'lambda' = AWS API Gateway with the Lambdas */
+  target?: 'api' | 'lambda';
 }
 
 function isKnownCode(value: unknown): value is ApiErrorCode {
   return typeof value === 'string' && (KNOWN_CODES as readonly string[]).includes(value);
 }
 
-function buildUrl(path: string, query: RequestOptions['query']): string {
+function buildUrl(base: string, path: string, query: RequestOptions['query']): string {
   const params = new URLSearchParams();
   Object.entries(query ?? {}).forEach(([key, value]) => {
     if (value !== undefined) params.set(key, String(value));
   });
   const qs = params.toString();
-  return `${BASE_URL}${path}${qs ? `?${qs}` : ''}`;
+  return `${base}${path}${qs ? `?${qs}` : ''}`;
 }
 
 /**
@@ -41,9 +47,13 @@ function buildUrl(path: string, query: RequestOptions['query']): string {
  * the Flask API answers `{ code, message }` with the same code names.
  */
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, query, auth = true } = options;
+  const { method = 'GET', body, query, auth = true, target = 'api' } = options;
+  const base = target === 'lambda' ? LAMBDA_URL : BASE_URL;
   if (auth) requireClaims(); // missing or expired token: fail fast without a round trip
-  if (!BASE_URL) throw new ApiError('INTERNAL', 'API URL is not configured (set VITE_API_URL)');
+  if (!base) {
+    const name = target === 'lambda' ? 'VITE_LAMBDA_URL' : 'VITE_API_URL';
+    throw new ApiError('INTERNAL', `API URL is not configured (set ${name})`);
+  }
 
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -52,7 +62,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
 
   let response: Response;
   try {
-    response = await fetch(buildUrl(path, query), {
+    response = await fetch(buildUrl(base, path, query), {
       method,
       headers,
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),

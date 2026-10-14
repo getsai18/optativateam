@@ -4,7 +4,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+INSECURE_JWT_SECRETS = ("", "dev-secret-change-me", "cambia-esto-por-32-bytes-aleatorios-minimo")
+
 API_CODE_STATUS = {
+    "RATE_LIMITED": 429,
     "UNAUTHORIZED": 401,
     "FORBIDDEN": 403,
     "NOT_FOUND": 404,
@@ -74,7 +77,7 @@ def build_config(overrides: dict | None = None) -> dict:
     config = {
         "DB_BILLING": billing,
         "DB_CATALOG": _catalog_db(billing),
-        "JWT_SECRET": os.getenv("JWT_SECRET", "dev-secret-change-me"),
+        "JWT_SECRET": os.getenv("JWT_SECRET", ""),
         "SESSION_TTL_MS": int(os.getenv("SESSION_TTL_MS", "1800000")),
         "DEMO_PASSWORD": os.getenv("DEMO_PASSWORD", "demo1234"),
         # Solo desarrollo local: acepta DEMO_PASSWORD para hashes que no son bcrypt (marcador del seed).
@@ -83,8 +86,16 @@ def build_config(overrides: dict | None = None) -> dict:
         "AUDIT_TABLE": os.getenv("AUDIT_TABLE", "billing_audit_log"),
         "AUDIT_REQUIRED": _bool("AUDIT_REQUIRED"),
         "CORS_ORIGINS": os.getenv("CORS_ORIGINS", "*"),
+        "MAX_CONTENT_LENGTH": 256 * 1024,  # cuerpos JSON > 256 KB -> 413
         "TESTING": False,
     }
     if overrides:
         config.update(overrides)
+    if not config.get("TESTING"):
+        secret = str(config["JWT_SECRET"])
+        if secret in INSECURE_JWT_SECRETS or len(secret) < 32:
+            raise RuntimeError(
+                "JWT_SECRET inseguro: define un valor aleatorio de >= 32 caracteres "
+                "(python -c \"import secrets;print(secrets.token_urlsafe(48))\")"
+            )
     return config

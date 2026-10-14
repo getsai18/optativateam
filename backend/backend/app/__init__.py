@@ -16,6 +16,15 @@ def create_app(overrides: dict | None = None) -> Flask:
     register_blueprints(app)
     app.teardown_appcontext(lambda _exc: database.teardown())
 
+    @app.after_request
+    def _security_headers(response):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("Cache-Control", "no-store")
+        response.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+        return response
+
     @app.get("/health")
     def health():
         return jsonify({"status": "ok"})
@@ -31,6 +40,10 @@ def _register_error_handlers(app: Flask) -> None:
     @app.errorhandler(404)
     def _handle_not_found(_error):
         return jsonify({"code": "NOT_FOUND", "message": "Not found"}), 404
+
+    @app.errorhandler(413)
+    def _handle_too_large(_error):
+        return jsonify({"code": "VALIDATION", "message": "Request body too large"}), 413
 
     @app.errorhandler(405)
     def _handle_method_not_allowed(_error):

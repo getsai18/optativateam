@@ -1,3 +1,5 @@
+import re
+
 from flask import g, request
 
 from .. import db, repos
@@ -11,6 +13,11 @@ DEFAULT_ISSUER = {
 }
 
 
+_EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,255}\.[^@\s]{2,}$")
+# Caracteres de control (incluye NUL) nunca son validos en estos campos.
+_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
 def json_body() -> dict:
     body = request.get_json(silent=True)
     if not isinstance(body, dict):
@@ -18,18 +25,36 @@ def json_body() -> dict:
     return body
 
 
-def str_field(body: dict, name: str) -> str:
+def str_field(body: dict, name: str, max_len: int = 255) -> str:
     value = body.get(name)
     if not isinstance(value, str) or not value.strip():
+        raise validation("Invalid request body")
+    if len(value) > max_len or _CONTROL.search(value):
         raise validation("Invalid request body")
     return value
 
 
-def opt_str_field(body: dict, name: str) -> str | None:
+def opt_str_field(body: dict, name: str, max_len: int = 255) -> str | None:
     value = body.get(name)
     if value is None:
         return None
-    if not isinstance(value, str):
+    if not isinstance(value, str) or len(value) > max_len or _CONTROL.search(value):
+        raise validation("Invalid request body")
+    return value
+
+
+def email_field(body: dict, name: str = "email") -> str:
+    value = str_field(body, name, 100).strip()
+    if not _EMAIL.match(value):
+        raise validation("Invalid request body")
+    return value
+
+
+def checked_text(value, max_len: int) -> str | None:
+    """Texto opcional ya extraido del body: tipo, largo y caracteres de control."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or len(value) > max_len or _CONTROL.search(value):
         raise validation("Invalid request body")
     return value
 

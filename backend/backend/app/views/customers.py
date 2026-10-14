@@ -4,7 +4,7 @@ from .. import audit, auth, db, repos
 from ..domain import encode_id
 from ..errors import conflict, not_found, validation
 from ..serializers import customer_json
-from .common import bool_field, json_body, opt_str_field, str_field
+from .common import bool_field, email_field, json_body, opt_str_field, str_field
 
 bp = Blueprint("customers", __name__)
 
@@ -14,10 +14,10 @@ _EMAIL_CONFLICT = "A customer with this email already exists"
 
 def _fields(body: dict) -> dict:
     return {
-        "name": str_field(body, "name"),
-        "tax_id": str_field(body, "taxId"),
-        "email": str_field(body, "email"),
-        "phone": opt_str_field(body, "phone") or None,
+        "name": str_field(body, "name", 150),
+        "tax_id": str_field(body, "taxId", 20),
+        "email": email_field(body),
+        "phone": opt_str_field(body, "phone", 30) or None,
         "address": str_field(body, "address"),
         "active": bool_field(body, "active", True),
     }

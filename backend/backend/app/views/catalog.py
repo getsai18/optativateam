@@ -4,7 +4,9 @@ from .. import audit, auth, db, repos
 from ..domain import encode_id
 from ..errors import conflict, not_found, validation
 from ..serializers import feature_json, services_json
-from .common import bool_field, json_body, opt_str_field, str_field
+import math
+
+from .common import bool_field, checked_text, json_body, opt_str_field, str_field
 
 bp = Blueprint("catalog", __name__)
 
@@ -28,14 +30,14 @@ def _service_fields(body: dict) -> dict:
     if category not in _CATEGORIES:
         raise validation("Invalid request body")
     base_price = body.get("basePrice")
-    if not isinstance(base_price, (int, float)) or isinstance(base_price, bool) or base_price < 0:
+    if not isinstance(base_price, (int, float)) or isinstance(base_price, bool):
         raise validation("Invalid request body")
-    description = body.get("description")
-    if description is not None and not isinstance(description, str):
+    if not math.isfinite(base_price) or base_price < 0 or base_price > 99_999_999:
         raise validation("Invalid request body")
+    description = checked_text(body.get("description"), 2000)
     return {
-        "code": str_field(body, "code"),
-        "name": str_field(body, "name"),
+        "code": str_field(body, "code", 20),
+        "name": str_field(body, "name", 120),
         "description": description,
         "base_price": float(base_price),
         "category": category,
@@ -69,7 +71,7 @@ def _features(body: dict) -> list[tuple[int, str]]:
         value = item.get("value")
         if feature_id is None or repos.find_feature(feature_id) is None:
             raise not_found("Feature not found")
-        if not isinstance(value, str) or not value:
+        if not isinstance(value, str) or not value or len(value) > 100:
             raise validation("Invalid request body")
         if feature_id in seen:
             raise validation("Invalid request body")
@@ -137,11 +139,9 @@ def list_features():
 
 
 def _feature_fields(body: dict) -> dict:
-    description = body.get("description")
-    if description is not None and not isinstance(description, str):
-        raise validation("Invalid request body")
-    unit = opt_str_field(body, "unit") or None
-    return {"name": str_field(body, "name"), "description": description, "unit": unit}
+    description = checked_text(body.get("description"), 1000)
+    unit = opt_str_field(body, "unit", 30) or None
+    return {"name": str_field(body, "name", 100), "description": description, "unit": unit}
 
 
 @bp.post("/features")

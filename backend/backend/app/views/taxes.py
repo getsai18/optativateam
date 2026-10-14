@@ -1,4 +1,5 @@
 import datetime
+import math
 import re
 
 from flask import Blueprint, jsonify, request
@@ -33,7 +34,7 @@ def change_tax_rate(tax_id: str):
     if not isinstance(body, dict):
         raise validation("Invalid request body")
     rate = body.get("rate")
-    if not isinstance(rate, (int, float)) or isinstance(rate, bool):
+    if not isinstance(rate, (int, float)) or isinstance(rate, bool) or not math.isfinite(rate):
         raise validation("Invalid request body")
     valid_from = body.get("validFrom")
     if not isinstance(valid_from, str) or not _DATE_PATTERN.match(valid_from):
@@ -45,6 +46,10 @@ def change_tax_rate(tax_id: str):
     if rate < 0 or rate > 1:
         raise validation("Rate must be between 0% and 100%")
     today = today_key()
+    try:
+        datetime.date.fromisoformat(valid_from)
+    except ValueError:
+        raise validation("Invalid request body")
     if valid_from < today:
         raise validation("The new rate cannot start in the past")
     open_period = repos.open_tax_period(db_id)

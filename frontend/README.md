@@ -9,7 +9,7 @@ meant to be swapped for AWS API Gateway calls (Lambda/Flask + RDS MySQL + Dynamo
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # Vitest (calculateTotals, status transitions, seed)
+npm test           # Vitest (calculateTotals, status transitions)
 npm run typecheck  # tsc, strict
 npm run lint
 npm run build
@@ -25,8 +25,6 @@ Password for all accounts: `demo1234` (the login page also has one-click "Sign i
 | Biller        | `biller@northwind.test`  |
 | Biller        | `biller2@northwind.test` |
 | Customer      | `customer@client.test` (also `customer2` … `customer5@client.test`) |
-
-To restore the original demo data, clear the site's `localStorage` (key `billing.db.v1`) and reload; `resetDb()` in `src/mocks/db.ts` does the same programmatically.
 
 ## What is implemented
 
@@ -48,7 +46,6 @@ src/
 ├─ features/       auth · dashboard · customers · catalog · taxes · users · invoices · payments · audit
 │                  each: components/ pages/ hooks/ services/ [store/ lib/] types.ts index.ts
 ├─ shared/         components/ui (UI kit), hooks, lib (format, cn, storage, session, token, invoiceStatus), types, constants
-└─ mocks/          db.ts (in-memory DB + localStorage), latency.ts, helpers.ts (audit/authorizer), seed/
 docs/DOMAIN.md     entities, fields, relationships, screens
 ```
 
@@ -56,8 +53,7 @@ Rules followed: pages are thin; business logic is in hooks, `services/` and pure
 another feature through its `index.ts`; every service function is async and marked `// TODO: replace with API Gateway call`.
 
 Dependency direction between features: `invoices → payments, catalog, customers, taxes`; `catalog → taxes`;
-`users → customers`; everything may use `auth`. `mocks/seed` imports `invoices/lib/calculateTotals` directly so seeded
-invoices are computed by the same function as live ones (the one deliberate deep import).
+`users → customers`; everything may use `auth`.
 
 ## Design decisions
 
@@ -80,8 +76,8 @@ invoices are computed by the same function as live ones (the one deliberate deep
 
 ## Backend real (API Gateway)
 
-Los `services/*.ts` ya llaman a la API a través de `src/shared/lib/http.ts`. Los `mocks/` quedan solo
-como datos de prueba para los tests (`seed.test.ts`); la app no los usa.
+Los `services/*.ts` llaman a la API a través de `src/shared/lib/http.ts`. Ya no hay datos mock en el frontend:
+todo viene del backend (`VITE_API_URL`) y las Lambdas (`VITE_LAMBDA_URL`).
 
 ```bash
 cp .env.example .env     # VITE_API_URL=https://<id>.execute-api.<region>.amazonaws.com

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, FilePlus2, Save, Stamp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button, ConfirmDialog, Panel, SkeletonBlock, Stepper, toast } from '../../../../shared/components/ui';
@@ -6,6 +6,7 @@ import { errorMessage } from '../../../../shared/lib/errors';
 import { formatMoney } from '../../../../shared/lib/format';
 import { useFeatures } from '../../../catalog';
 import { useBuilderView } from '../../hooks/useBuilderTotals';
+import { getCart } from '../../services/cartService';
 import { saveAndIssue, saveDraft } from '../../services/invoiceService';
 import { useBuilderStore } from '../../store/builderStore';
 import { CustomerStep } from './CustomerStep';
@@ -27,6 +28,20 @@ export function InvoiceWizard() {
   const lines = useBuilderStore((s) => s.lines);
   const invoiceId = useBuilderStore((s) => s.invoiceId);
   const reset = useBuilderStore((s) => s.reset);
+  const hydrate = useBuilderStore((s) => s.hydrate);
+
+  // Restore the cart saved in AWS (other device/session) when the local one is empty.
+  useEffect(() => {
+    const local = useBuilderStore.getState();
+    if (local.invoiceId || local.customerId || local.lines.length > 0) return;
+    getCart()
+      .then((cart) => {
+        const now = useBuilderStore.getState();
+        if (now.invoiceId || now.customerId || now.lines.length > 0) return;
+        if (cart.customerId || cart.invoiceId || cart.lines.length > 0) hydrate(cart);
+      })
+      .catch(() => undefined);
+  }, [hydrate]);
 
   const [busy, setBusy] = useState<'draft' | 'issue' | null>(null);
   const [confirmIssue, setConfirmIssue] = useState(false);

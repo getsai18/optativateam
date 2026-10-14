@@ -5,7 +5,7 @@ from .. import audit, auth, db, repos
 from ..domain import decode_id, encode_id
 from ..errors import conflict, not_found, validation
 from ..serializers import user_json
-from .common import bool_field, json_body, str_field
+from .common import bool_field, email_field, json_body, str_field
 
 bp = Blueprint("users", __name__)
 
@@ -14,8 +14,8 @@ _ROLES = ("ADMIN", "BILLER", "CUSTOMER")
 
 
 def _fields(body: dict) -> dict:
-    email = str_field(body, "email")
-    full_name = str_field(body, "fullName")
+    email = email_field(body)
+    full_name = str_field(body, "fullName", 150)
     role = str_field(body, "role")
     if role not in _ROLES:
         raise validation("Invalid request body")
@@ -38,7 +38,9 @@ def _fields(body: dict) -> dict:
 
 def _password_hash(body: dict) -> str:
     password = body.get("password")
-    if not isinstance(password, str) or not password:
+    if password is not None and (not isinstance(password, str) or not (8 <= len(password) <= 72)):
+        raise validation("Password must be between 8 and 72 characters")
+    if not password:
         password = current_app.config["DEMO_PASSWORD"]
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 

@@ -228,6 +228,8 @@ def cancel_invoice(invoice_id: str):
     reason = body.get("reason")
     if not isinstance(reason, str) or len(reason.strip()) < 5:
         raise validation("A cancellation reason is required")
+    if len(reason.strip()) > 255:
+        raise validation("The cancellation reason is too long")
     db_id, invoice = _load_invoice(invoice_id, lock=True)
     if not can_cancel_invoice(invoice["status"]):
         raise conflict("Paid or already cancelled invoices cannot be cancelled")

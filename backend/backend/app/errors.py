@@ -28,5 +28,9 @@ def validation(message: str) -> ApiError:
     return ApiError("VALIDATION", message)
 
 
+def rate_limited() -> ApiError:
+    return ApiError("RATE_LIMITED", "Too many attempts. Try again later")
+
+
 def conflict(message: str) -> ApiError:
     return ApiError("CONFLICT", message)
