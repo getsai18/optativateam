@@ -77,7 +77,7 @@ Dependency direction between features: `invoices → payments, catalog, customer
 ## Backend real (API Gateway)
 
 Los `services/*.ts` llaman a la API a través de `src/shared/lib/http.ts`. Ya no hay datos mock en el frontend:
-todo viene del backend (`VITE_API_URL`) y las Lambdas (`VITE_LAMBDA_URL`).
+todo viene del backend (`VITE_API_URL`).
 
 ```bash
 cp .env.example .env     # VITE_API_URL=https://<id>.execute-api.<region>.amazonaws.com

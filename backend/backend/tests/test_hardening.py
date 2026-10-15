@@ -74,3 +74,14 @@ def test_state_changing_invoice_endpoints_lock_the_row(client, app, store, monke
     other = client.post("/invoices", json=DRAFT_BODY, headers=headers).get_json()["id"]
     client.post(f"/invoices/{other}/cancel", json={"reason": "duplicada"}, headers=headers)
     assert len(locked) >= 4  # issue (x2: carga + sello), pay, cancel
+
+
+def test_production_rejects_wildcard_cors(monkeypatch):
+    import pytest
+    from app.config import build_config
+
+    monkeypatch.setenv("APP_ENV", "production")
+    with pytest.raises(RuntimeError, match="CORS_ORIGINS"):
+        build_config({"JWT_SECRET": "x" * 40, "CORS_ORIGINS": "*"})
+    config = build_config({"JWT_SECRET": "x" * 40, "CORS_ORIGINS": "https://app.example"})
+    assert config["PRODUCTION"] is True

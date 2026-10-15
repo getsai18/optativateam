@@ -2,7 +2,7 @@ import datetime
 
 import pytest
 
-from app import audit, auth, create_app
+from app import audit, auth, cart, create_app
 from app import repos
 from app.domain import utcnow
 
@@ -10,6 +10,7 @@ from app.domain import utcnow
 @pytest.fixture()
 def app():
     audit.reset_memory()
+    cart.reset_memory()
     application = create_app(
         {
             "TESTING": True,

@@ -1,5 +1,6 @@
 from .audit import bp as audit_bp
 from .auth import bp as auth_bp
+from .cart import bp as cart_bp
 from .catalog import bp as catalog_bp
 from .customers import bp as customers_bp
 from .dashboard import bp as dashboard_bp
@@ -18,6 +19,7 @@ ALL_BLUEPRINTS = (
     payments_bp,
     dashboard_bp,
     audit_bp,
+    cart_bp,
 )
 
 

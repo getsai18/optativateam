@@ -1,5 +1,6 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import db as database
 from .config import build_config
@@ -10,10 +11,17 @@ from .views import register_blueprints
 def create_app(overrides: dict | None = None) -> Flask:
     app = Flask(__name__)
     app.config.update(build_config(overrides))
+    proxies = int(app.config.get("TRUSTED_PROXIES", 0))
+    if proxies > 0:  # detrás de nginx/ALB: usa X-Forwarded-For para la IP real (rate limit del login)
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=proxies, x_proto=proxies, x_host=proxies)
     origins = [origin.strip() for origin in app.config["CORS_ORIGINS"].split(",") if origin.strip()]
     CORS(app, resources={r"/*": {"origins": origins}})
     _register_error_handlers(app)
     register_blueprints(app)
+    if app.config.get("PRODUCTION") and not app.testing:
+        for key in ("AUDIT_BACKEND", "CART_BACKEND"):
+            if app.config.get(key) == "memory":
+                app.logger.warning("%s=memory en producción: no se comparte entre workers ni sobrevive reinicios", key)
     app.teardown_appcontext(lambda _exc: database.teardown())
 
     @app.after_request

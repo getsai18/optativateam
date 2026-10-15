@@ -42,6 +42,8 @@ def _password_hash(body: dict) -> str:
         raise validation("Password must be between 8 and 72 characters")
     if not password:
         password = current_app.config["DEMO_PASSWORD"]
+        if not password:
+            raise validation("Password must be between 8 and 72 characters")
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
