@@ -2,7 +2,7 @@ import datetime
 
 import pytest
 
-from app import audit, auth, cart, create_app
+from app import audit, auth, cart, create_app, ratelimit
 from app import repos
 from app.domain import utcnow
 
@@ -11,11 +11,13 @@ from app.domain import utcnow
 def app():
     audit.reset_memory()
     cart.reset_memory()
+    ratelimit.reset()
     application = create_app(
         {
             "TESTING": True,
             "JWT_SECRET": "test-secret-0123456789-0123456789-ab",
             "AUDIT_BACKEND": "memory",
+            "RATE_LIMIT_PER_MIN": 0,
             "DEMO_PASSWORD": "demo1234",
             "ALLOW_DEMO_LOGIN": True,
         }
@@ -173,6 +175,12 @@ class FakeStore:
         def find_user(user_id):
             row = store.users.get(user_id)
             return dict(row) if row else None
+
+        def user_status(user_id):
+            row = store.users.get(user_id)
+            if row is None:
+                return {"active": 1, "role": None}  # los tokens de los tests no siempre tienen fila
+            return {"active": row["active"], "role": row["role"]}
 
         def list_users():
             return [dict(row) for row in store.users.values()]
@@ -608,6 +616,7 @@ class FakeStore:
         mapping = {
             "find_user_by_login": find_user_by_login,
             "find_user": find_user,
+            "user_status": user_status,
             "list_users": list_users,
             "user_email_taken": user_email_taken,
             "insert_user": insert_user,

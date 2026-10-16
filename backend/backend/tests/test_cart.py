@@ -7,12 +7,12 @@ def test_cart_requires_auth(client):
     assert client.get("/cart").status_code == 401
 
 
-def test_cart_forbidden_for_customer(client, app):
+def test_cart_forbidden_for_customer(client, app, store):
     response = client.get("/cart", headers=auth_headers(app, "CUSTOMER", "usr_9", "cus_1"))
     assert response.status_code == 403
 
 
-def test_cart_empty_roundtrip_and_delete(client, app):
+def test_cart_empty_roundtrip_and_delete(client, app, store):
     headers = auth_headers(app, "BILLER", "usr_2")
     assert client.get("/cart", headers=headers).get_json()["lines"] == []
     assert client.put("/cart", json=VALID, headers=headers).status_code == 200
@@ -21,13 +21,13 @@ def test_cart_empty_roundtrip_and_delete(client, app):
     assert client.get("/cart", headers=headers).get_json()["lines"] == []
 
 
-def test_cart_isolated_per_user(client, app):
+def test_cart_isolated_per_user(client, app, store):
     a, b = auth_headers(app, "BILLER", "usr_2"), auth_headers(app, "ADMIN", "usr_1")
     client.put("/cart", json=VALID, headers=a)
     assert client.get("/cart", headers=b).get_json()["lines"] == []
 
 
-def test_cart_validation(client, app):
+def test_cart_validation(client, app, store):
     headers = auth_headers(app, "ADMIN")
     bad = [
         {**VALID, "lines": [{"serviceId": "svc_1", "quantity": 0}]},
@@ -40,6 +40,6 @@ def test_cart_validation(client, app):
         assert client.put("/cart", json=body, headers=headers).status_code == 400
 
 
-def test_cart_step_clamped(client, app):
+def test_cart_step_clamped(client, app, store):
     headers = auth_headers(app, "ADMIN")
     assert client.put("/cart", json={**VALID, "step": 99}, headers=headers).get_json()["step"] == 3

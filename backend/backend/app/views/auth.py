@@ -44,6 +44,8 @@ def login():
         raise rate_limited()
     user = repos.find_user_by_login(email.strip().lower())
     demo = current_app.config["DEMO_PASSWORD"] if current_app.config["ALLOW_DEMO_LOGIN"] else ""
+    if user is None:
+        auth.burn_password_check(password)
     if user is None or not auth.verify_password(user["password_hash"], password, demo):
         _FAILS.setdefault(key, []).append(time.time())
         raise ApiError("UNAUTHORIZED", "Invalid email or password")

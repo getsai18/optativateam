@@ -34,6 +34,11 @@ def find_user(user_id: int) -> dict | None:
     return _conn().one("SELECT * FROM app_user WHERE id = :id", {"id": user_id})
 
 
+def user_status(user_id: int) -> dict | None:
+    """Estado vigente del usuario (activo y rol) para validar cada token contra la base."""
+    return _conn().one("SELECT active, role FROM app_user WHERE id = :id", {"id": user_id})
+
+
 def list_users() -> list[dict]:
     return _conn().all("SELECT * FROM app_user ORDER BY id")
 

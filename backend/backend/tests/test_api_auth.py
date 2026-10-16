@@ -28,7 +28,7 @@ def test_login_success(client, store):
     claims = data["claims"]
     assert claims["sub"] == "usr_1"
     assert claims["role"] == "ADMIN"
-    assert claims["exp"] > int(time.time() * 1000)
+    assert int(time.time()) < claims["exp"] <= int(time.time()) + 1800
 
 
 def test_login_trims_and_lowercases_email(client, store):
@@ -69,14 +69,14 @@ def test_expired_token_is_unauthorized(client, app):
         "email": "a@b.test",
         "name": "A",
         "role": "ADMIN",
-        "exp": int(time.time() * 1000) - 1000,
+        "exp": int(time.time()) - 1,
     }
     token = jwt.encode(claims, app.config["JWT_SECRET"], algorithm="HS256")
     response = client.get("/users", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 401
 
 
-def test_forbidden_role(client, app):
+def test_forbidden_role(client, app, store):
     response = client.get("/users", headers=auth_headers(app, role="CUSTOMER", customer_id="cus_1"))
     assert response.status_code == 403
     assert response.get_json() == {
@@ -98,7 +98,7 @@ def test_token_from_other_secret_rejected(client, app):
         "email": "a@b.test",
         "name": "A",
         "role": "ADMIN",
-        "exp": int(time.time() * 1000) + 100000,
+        "exp": int(time.time()) + 100,
     }
     token = jwt.encode(claims, "another-secret-0123456789-01234567-xy", algorithm="HS256")
     response = client.get("/users", headers={"Authorization": f"Bearer {token}"})

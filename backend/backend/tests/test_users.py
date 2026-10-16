@@ -37,13 +37,14 @@ def test_create_customer_user_with_unknown_customer(client, app, store):
     assert response.status_code == 404
 
 
-def test_create_customer_user_and_login_with_demo_password(client, app, store):
+def test_create_customer_user_and_login(client, app, store):
     payload = {
         "email": "customer@client.test",
         "fullName": "Ricardo Meza",
         "role": "CUSTOMER",
         "customerId": "cus_1",
         "active": True,
+        "password": "Clave-segura-2026",
     }
     response = client.post("/users", json=payload, headers=auth_headers(app))
     assert response.status_code == 200
@@ -51,8 +52,8 @@ def test_create_customer_user_and_login_with_demo_password(client, app, store):
     assert data["id"] == "usr_1"
     assert data["customerId"] == "cus_1"
     stored_hash = store.users[1]["password_hash"]
-    assert bcrypt.checkpw(b"demo1234", stored_hash.encode("utf-8"))
-    login = client.post("/auth/login", json={"email": "customer@client.test", "password": "demo1234"})
+    assert bcrypt.checkpw(b"Clave-segura-2026", stored_hash.encode("utf-8"))
+    login = client.post("/auth/login", json={"email": "customer@client.test", "password": "Clave-segura-2026"})
     assert login.status_code == 200
     assert login.get_json()["claims"]["customerId"] == "cus_1"
 
@@ -104,3 +105,40 @@ def test_update_user_ok(client, app, store):
     assert response.status_code == 200
     assert store.users[2]["active"] == 0
     assert store.users[2]["email"] == "b2@northwind.test"
+
+
+def test_create_user_without_password_is_rejected(client, app, store):
+    payload = {"email": "nopass@client.test", "fullName": "Sin Clave", "role": "BILLER", "active": True}
+    response = client.post("/users", json=payload, headers=auth_headers(app))
+    assert response.status_code == 400
+    assert store.users == {}
+
+
+def test_token_of_deactivated_user_is_rejected(client, app, store):
+    store.users[2] = {
+        "id": 2,
+        "email": "biller@test.local",
+        "password_hash": "x",
+        "full_name": "Biller",
+        "role": "BILLER",
+        "customer_id": None,
+        "active": 1,
+    }
+    headers = auth_headers(app, "BILLER", "usr_2")
+    assert client.get("/invoices", headers=headers).status_code == 200
+    store.users[2]["active"] = 0
+    assert client.get("/invoices", headers=headers).status_code == 401
+
+
+def test_token_role_follows_database_role(client, app, store):
+    store.users[2] = {
+        "id": 2,
+        "email": "biller@test.local",
+        "password_hash": "x",
+        "full_name": "Biller",
+        "role": "BILLER",
+        "customer_id": None,
+        "active": 1,
+    }
+    headers = auth_headers(app, "ADMIN", "usr_2")  # token viejo que dice ADMIN
+    assert client.get("/users", headers=headers).status_code == 403

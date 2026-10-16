@@ -36,14 +36,20 @@ def _fields(body: dict) -> dict:
     }
 
 
+_COMMON_PASSWORDS = frozenset(
+    ("demo1234", "password1", "password123", "12345678a", "qwerty123", "admin1234", "abc12345", "contrasena1", "welcome1")
+)
+
+
 def _password_hash(body: dict) -> str:
     password = body.get("password")
-    if password is not None and (not isinstance(password, str) or not (8 <= len(password) <= 72)):
+    if not isinstance(password, str) or not (8 <= len(password) <= 72):
         raise validation("Password must be between 8 and 72 characters")
-    if not password:
-        password = current_app.config["DEMO_PASSWORD"]
-        if not password:
-            raise validation("Password must be between 8 and 72 characters")
+    has_letter = any(c.isalpha() for c in password)
+    has_digit = any(c.isdigit() for c in password)
+    demo = current_app.config.get("DEMO_PASSWORD", "")
+    if not (has_letter and has_digit) or password.lower() in _COMMON_PASSWORDS or (demo and password == demo):
+        raise validation("Password must include letters and numbers and cannot be a common password")
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 

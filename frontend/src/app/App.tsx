@@ -4,7 +4,7 @@ import { AppRoutes } from './router/routes';
 
 export function App() {
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <BrowserRouter>
       <AppProviders>
         <AppRoutes />
       </AppProviders>

@@ -6,7 +6,7 @@ export interface TokenClaims {
   name: string;
   role: Role;
   customerId?: string;
-  /** expiry, epoch milliseconds */
+  /** expiry, epoch seconds (RFC 7519) */
   exp: number;
 }
 
@@ -47,5 +47,5 @@ export function decodeToken(token: string): TokenClaims | null {
 }
 
 export function isExpired(claims: TokenClaims, now: number = Date.now()): boolean {
-  return claims.exp <= now;
+  return claims.exp * 1000 <= now;
 }

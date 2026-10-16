@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useAuthStore } from '../../auth/store/authStore';
 import { readToken } from '../../../shared/lib/session';
 import { localStore } from '../../../shared/lib/storage';
 import { clearCart, saveCart } from '../services/cartService';
@@ -27,14 +28,29 @@ interface BuilderState extends BuilderData {
 
 const EMPTY: BuilderData = { invoiceId: null, customerId: null, lines: [], step: 0 };
 
+const ID = /^[a-z]+_\d+$/;
+const isId = (v: unknown): v is string => typeof v === 'string' && ID.test(v);
+
+/** localStorage es editable por el usuario: se reconstruye el carrito campo por campo, nunca se confía en su forma. */
 function initial(): BuilderData {
-  const stored = localStore.get<BuilderData>(KEY);
-  if (!stored || !Array.isArray(stored.lines)) return EMPTY;
+  const stored = localStore.get<Partial<BuilderData>>(KEY);
+  if (!stored || typeof stored !== 'object' || !Array.isArray(stored.lines)) return EMPTY;
+  const seen = new Set<string>();
+  const lines: BuilderLine[] = [];
+  for (const raw of stored.lines.slice(0, 200)) {
+    const line = raw as Partial<BuilderLine> | null;
+    if (!line || !isId(line.serviceId) || seen.has(line.serviceId)) continue;
+    const qty = line.quantity;
+    if (typeof qty !== 'number' || !Number.isInteger(qty) || qty < 1 || qty > 9999) continue;
+    seen.add(line.serviceId);
+    lines.push({ serviceId: line.serviceId, quantity: qty });
+  }
+  const step = typeof stored.step === 'number' && Number.isFinite(stored.step) ? stored.step : 0;
   return {
-    invoiceId: stored.invoiceId ?? null,
-    customerId: stored.customerId ?? null,
-    lines: stored.lines,
-    step: Math.min(Math.max(stored.step ?? 0, 0), 3),
+    invoiceId: isId(stored.invoiceId) ? stored.invoiceId : null,
+    customerId: isId(stored.customerId) ? stored.customerId : null,
+    lines,
+    step: Math.min(Math.max(Math.trunc(step), 0), 3),
   };
 }
 
@@ -71,4 +87,9 @@ useBuilderStore.subscribe((s) => {
   if (empty) localStore.remove(KEY);
   else localStore.set<BuilderData>(KEY, { invoiceId, customerId, lines, step });
   syncRemote({ invoiceId, customerId, lines, step }, empty);
+});
+
+// Al cerrar sesión (o expirar) el carrito no debe quedar para el siguiente usuario del mismo navegador.
+useAuthStore.subscribe((state, prev) => {
+  if (prev.claims && !state.claims) useBuilderStore.getState().reset();
 });

@@ -5,20 +5,29 @@ import { Button, Input, Select } from '../../../shared/components/ui';
 import { ROLES, ROLE_LABEL } from '../../../shared/constants/labels';
 import type { Customer, User } from '../../../shared/types';
 
-const schema = z
+const PASSWORD_HINT = 'At least 8 characters, with letters and numbers.';
+
+const makeSchema = (isNew: boolean) =>
+  z
   .object({
     fullName: z.string().trim().min(2, 'Enter the full name').max(80, 'Name is too long'),
     email: z.string().trim().min(1, 'Enter an email').email('Enter a valid email address'),
     role: z.enum(['ADMIN', 'BILLER', 'CUSTOMER']),
     customerId: z.string().optional(),
     active: z.boolean(),
+    password: z.string().max(72, 'Password is too long').optional(),
   })
   .refine((v) => v.role !== 'CUSTOMER' || Boolean(v.customerId), {
     path: ['customerId'],
     message: 'Choose the customer this user belongs to',
+  })
+  .refine((v) => !isNew || (v.password ?? '').length >= 8, { path: ['password'], message: PASSWORD_HINT })
+  .refine((v) => !v.password || (/[A-Za-z]/.test(v.password) && /\d/.test(v.password)), {
+    path: ['password'],
+    message: PASSWORD_HINT,
   });
 
-export type UserFormValues = z.infer<typeof schema>;
+export type UserFormValues = z.infer<ReturnType<typeof makeSchema>>;
 
 interface UserFormProps {
   user?: User | undefined;
@@ -37,13 +46,14 @@ export function UserForm({ user, customers, isSelf, submitting, onSubmit, onCanc
     watch,
     formState: { errors },
   } = useForm<UserFormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(makeSchema(!user)),
     defaultValues: {
       fullName: user?.fullName ?? '',
       email: user?.email ?? '',
       role: user?.role ?? 'BILLER',
       customerId: user?.customerId ?? '',
       active: user?.active ?? true,
+      password: '',
     },
   });
   const role = watch('role');
@@ -59,6 +69,17 @@ export function UserForm({ user, customers, isSelf, submitting, onSubmit, onCanc
           </option>
         ))}
       </Select>
+      {user ? null : (
+        <Input
+          label="Password"
+          type="password"
+          autoComplete="new-password"
+          required
+          hint={PASSWORD_HINT}
+          error={errors.password?.message}
+          {...register('password')}
+        />
+      )}
       {role === 'CUSTOMER' ? (
         <Select label="Customer" required error={errors.customerId?.message} {...register('customerId')}>
           <option value="">Select a customer…</option>

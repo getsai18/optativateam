@@ -103,6 +103,7 @@ def build_config(overrides: dict | None = None) -> dict:
         "CART_TABLE": os.getenv("CART_TABLE", "billing_invoice_cart"),
         "CART_TTL_DAYS": int(os.getenv("CART_TTL_DAYS", "7")),
         "CORS_ORIGINS": os.getenv("CORS_ORIGINS", "*"),
+        "RATE_LIMIT_PER_MIN": int(os.getenv("RATE_LIMIT_PER_MIN", "300")),  # 0 = sin límite general
         "MAX_CONTENT_LENGTH": 256 * 1024,  # cuerpos JSON > 256 KB -> 413
         "TESTING": False,
     }

@@ -15,11 +15,11 @@ def _claims(exp_ms=None):
         "email": "admin@northwind.test",
         "name": "Sofía Navarro",
         "role": "ADMIN",
-        "exp": exp_ms if exp_ms is not None else int(time.time() * 1000) + 1800000,
+        "exp": exp_ms if exp_ms is not None else int(time.time()) + 1800,
     }
 
 
-def test_token_roundtrip_uses_epoch_milliseconds():
+def test_token_roundtrip_uses_epoch_seconds():
     claims = build_claims(
         {
             "sub": "usr_1",
@@ -30,7 +30,7 @@ def test_token_roundtrip_uses_epoch_milliseconds():
             "ttl_ms": 1800000,
         }
     )
-    assert claims["exp"] > int(time.time() * 1000)
+    assert int(time.time()) < claims["exp"] <= int(time.time()) + 1800
     token = encode_token(claims, SECRET)
     decoded = decode_token(token, SECRET)
     assert decoded is not None
@@ -53,7 +53,7 @@ def test_token_with_customer_id_claim():
 
 
 def test_expired_token_is_rejected():
-    token = encode_token(_claims(exp_ms=int(time.time() * 1000) - 1000), SECRET)
+    token = encode_token(_claims(exp_ms=int(time.time()) - 1), SECRET)
     assert decode_token(token, SECRET) is None
 
 
@@ -91,3 +91,8 @@ def test_verify_password_with_real_bcrypt_hash():
 def test_uuid_generation_shape():
     value = str(uuid.uuid4())
     assert len(value) == 36
+
+
+def test_token_with_millisecond_exp_is_rejected():
+    token = encode_token(_claims(exp_ms=int(time.time() * 1000) + 1800000), SECRET)
+    assert decode_token(token, SECRET) is None

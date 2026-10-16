@@ -7,6 +7,8 @@ export interface UserInput {
   role: Role;
   customerId?: string | undefined;
   active: boolean;
+  /** only sent when creating a user */
+  password?: string | undefined;
 }
 
 export async function listUsers(): Promise<User[]> {

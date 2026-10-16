@@ -4,6 +4,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import db as database
 from .config import build_config
+from . import ratelimit
 from .errors import ApiError
 from .views import register_blueprints
 
@@ -17,6 +18,7 @@ def create_app(overrides: dict | None = None) -> Flask:
     origins = [origin.strip() for origin in app.config["CORS_ORIGINS"].split(",") if origin.strip()]
     CORS(app, resources={r"/*": {"origins": origins}})
     _register_error_handlers(app)
+    ratelimit.init_app(app)
     register_blueprints(app)
     if app.config.get("PRODUCTION") and not app.testing:
         for key in ("AUDIT_BACKEND", "CART_BACKEND"):

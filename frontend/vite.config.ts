@@ -10,7 +10,11 @@ function csp(apiOrigins: string[]): Plugin {
     "img-src 'self' data:",
     "font-src 'self' data:",
     `connect-src 'self' ${apiOrigins.join(' ')}`.trim(),
+    "media-src 'none'",
     "object-src 'none'",
+    "frame-src 'none'",
+    "worker-src 'none'",
+    "manifest-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
   ].join('; ');
@@ -19,6 +23,7 @@ function csp(apiOrigins: string[]): Plugin {
     apply: 'build',
     transformIndexHtml: () => [
       { tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: policy }, injectTo: 'head-prepend' },
+      { tag: 'meta', attrs: { name: 'referrer', content: 'no-referrer' }, injectTo: 'head-prepend' },
     ],
   };
 }

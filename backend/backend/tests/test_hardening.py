@@ -85,3 +85,40 @@ def test_production_rejects_wildcard_cors(monkeypatch):
         build_config({"JWT_SECRET": "x" * 40, "CORS_ORIGINS": "*"})
     config = build_config({"JWT_SECRET": "x" * 40, "CORS_ORIGINS": "https://app.example"})
     assert config["PRODUCTION"] is True
+
+
+def test_unknown_email_still_runs_password_check(client, store, monkeypatch):
+    from app import auth
+
+    calls = []
+    monkeypatch.setattr(auth, "burn_password_check", lambda password: calls.append(password))
+    response = client.post("/auth/login", json={"email": "nadie@example.test", "password": "whatever123"})
+    assert response.status_code == 401
+    assert calls == ["whatever123"]
+
+
+def test_general_rate_limit_returns_429(app, store):
+    from app import create_app, ratelimit
+
+    ratelimit.reset()
+    limited = create_app({"TESTING": True, "JWT_SECRET": "test-secret-0123456789-0123456789-ab", "RATE_LIMIT_PER_MIN": 5})
+    client = limited.test_client()
+    codes = [client.get("/nada").status_code for _ in range(8)]
+    assert codes[:5] == [404] * 5
+    assert codes[5:] == [429] * 3
+    assert client.get("/health").status_code == 200  # el health check nunca se limita
+    ratelimit.reset()
+
+
+def test_password_policy(client, app, store):
+    from tests.conftest import auth_headers
+
+    def create(password):
+        payload = {"email": f"p{abs(hash(password))}@x.test", "fullName": "P", "role": "BILLER", "password": password}
+        return client.post("/users", json=payload, headers=auth_headers(app)).status_code
+
+    assert create("short1") == 400
+    assert create("sololetrasaqui") == 400
+    assert create("123456789012") == 400
+    assert create("demo1234") == 400
+    assert create("Clave-segura-2026") == 200

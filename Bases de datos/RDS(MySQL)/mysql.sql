@@ -51,7 +51,8 @@ CREATE TABLE customer (
     created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    UNIQUE KEY uq_customer_tax (tax_id),         -- el frontend solo valida unicidad de taxId
+    UNIQUE KEY uq_customer_tax (tax_id),
+    UNIQUE KEY uq_customer_email (email),
     CONSTRAINT ck_customer_active CHECK (active IN (0, 1))
 ) ENGINE=InnoDB;
 

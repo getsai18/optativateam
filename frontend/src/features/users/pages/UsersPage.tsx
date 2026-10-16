@@ -72,7 +72,7 @@ export function UsersPage() {
     setSaving(true);
     try {
       if (selected && selected !== 'new') {
-        await updateUser(selected.id, values);
+        await updateUser(selected.id, { ...values, password: undefined });
         toast.success('User updated');
       } else {
         await createUser(values);

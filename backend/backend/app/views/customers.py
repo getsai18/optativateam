@@ -36,6 +36,8 @@ def create_customer():
     fields = _fields(json_body())
     if repos.customer_tax_taken(fields["tax_id"]):
         raise conflict(_TAX_CONFLICT)
+    if repos.customer_email_taken(fields["email"]):
+        raise conflict(_EMAIL_CONFLICT)
     try:
         customer_id = repos.insert_customer(**fields)
     except db.DuplicateKeyError:

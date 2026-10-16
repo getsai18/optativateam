@@ -84,3 +84,10 @@ def test_update_customer_duplicate_email_conflict(client, app, store):
 def test_customer_requires_billler_role_for_create(client, app, store):
     response = client.post("/customers", json=CUSTOMER_PAYLOAD, headers=auth_headers(app, role="CUSTOMER", customer_id="cus_1"))
     assert response.status_code == 403
+
+
+def test_create_customer_duplicate_email(client, app, store):
+    payload = dict(CUSTOMER_PAYLOAD, email="billing@alameda.example")
+    response = client.post("/customers", json=payload, headers=auth_headers(app))
+    assert response.status_code == 409
+    assert response.get_json() == {"code": "CONFLICT", "message": "A customer with this email already exists"}

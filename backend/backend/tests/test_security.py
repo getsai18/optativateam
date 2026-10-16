@@ -37,7 +37,7 @@ def test_forged_and_unsigned_tokens_are_rejected(client, app):
         assert r.status_code == 401
 
 
-def test_customer_cannot_reach_admin_routes(client, app):
+def test_customer_cannot_reach_admin_routes(client, app, store):
     headers = auth_headers(app, role="CUSTOMER", sub="usr_9", customer_id="cus_1")
     for path in ("/users", "/audit", "/customers", "/dashboard", "/services"):
         assert client.get(path, headers=headers).status_code == 403
