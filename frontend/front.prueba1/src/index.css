@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --paper: 244 246 246;
+    --surface: 255 255 255;
+    --line: 227 232 231;
+    --ink: 16 32 30;
+    --muted: 72 90 86;
+    --primary: 11 107 94;
+    --primary-hover: 9 87 77;
+    --primary-light: 20 163 143;
+    --primary-soft: 228 244 240;
+    --accent: 227 155 30;
+    --accent-soft: 252 241 219;
+    --status-draft: 91 88 80;
+    --status-draft-bg: 238 237 234;
+    --status-issued: 31 95 168;
+    --status-issued-bg: 228 238 248;
+    --status-paid: 46 125 79;
+    --status-paid-bg: 227 241 232;
+    --status-cancelled: 179 57 47;
+    --status-cancelled-bg: 248 229 226;
+    color-scheme: light;
+  }
+
+  .dark {
+    --paper: 10 17 16;
+    --surface: 18 27 26;
+    --line: 40 54 52;
+    --ink: 231 239 237;
+    --muted: 176 191 187;
+    --primary: 37 168 147;
+    --primary-hover: 30 145 127;
+    --primary-light: 64 205 182;
+    --primary-soft: 20 52 47;
+    --accent: 242 180 72;
+    --accent-soft: 58 44 18;
+    --status-draft: 186 182 174;
+    --status-draft-bg: 39 44 42;
+    --status-issued: 140 190 242;
+    --status-issued-bg: 22 40 62;
+    --status-paid: 124 210 158;
+    --status-paid-bg: 19 49 34;
+    --status-cancelled: 246 152 140;
+    --status-cancelled-bg: 64 28 26;
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-paper font-sans text-sm text-ink antialiased;
+    background-image:
+      radial-gradient(900px 360px at 85% -80px, rgba(20, 163, 143, 0.10), transparent 70%),
+      radial-gradient(700px 300px at 0% 0%, rgba(227, 155, 30, 0.05), transparent 70%);
+    background-attachment: fixed;
+    font-feature-settings: 'tnum' 0;
+  }
+
+  /* Amounts, folios and UUIDs always use tabular figures. */
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(900px 360px at 85% -80px, rgba(37, 168, 147, 0.12), transparent 70%),
+      radial-gradient(700px 300px at 0% 0%, rgba(242, 180, 72, 0.04), transparent 70%);
+  }
+
+  :focus-visible {
+    outline: 2px solid #14a38f;
+    outline-offset: 2px;
+  }
+
+  /* SearchInput renders its own clear button. */
+  input[type='search']::-webkit-search-cancel-button {
+    display: none;
+  }
+
+  select option {
+    background-color: rgb(var(--surface));
+    color: rgb(var(--ink));
+  }
+
+  /* App shell: uniform vertical rhythm so screens read as calm, separated blocks. */
+  .page-stack > * + * {
+    margin-top: 1.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  /* Receipts always print on white, whatever the screen theme. */
+  :root,
+  .dark {
+    --paper: 244 246 246;
+    --surface: 255 255 255;
+    --line: 227 232 231;
+    --ink: 16 32 30;
+    --muted: 95 112 108;
+    --primary: 11 107 94;
+    --primary-hover: 9 87 77;
+    --primary-light: 20 163 143;
+    --primary-soft: 228 244 240;
+    --accent: 227 155 30;
+    --accent-soft: 252 241 219;
+    --status-draft: 107 103 95;
+    --status-draft-bg: 238 237 234;
+    --status-issued: 31 95 168;
+    --status-issued-bg: 228 238 248;
+    --status-paid: 46 125 79;
+    --status-paid-bg: 227 241 232;
+    --status-cancelled: 179 57 47;
+    --status-cancelled-bg: 248 229 226;
+    color-scheme: light;
+  }
+
+  body {
+    background: #fff;
+  }
+}

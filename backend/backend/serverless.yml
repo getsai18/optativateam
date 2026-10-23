@@ -1,0 +1,61 @@
+service: billing-api
+frameworkVersion: '3'
+
+plugins:
+  - serverless-wsgi
+  - serverless-python-requirements
+
+provider:
+  name: aws
+  runtime: python3.12
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+  timeout: 20          # API Gateway HTTP API corta a los 30 s
+  memorySize: 512
+  httpApi:
+    cors:
+      allowedOrigins:
+        - ${env:FRONTEND_ORIGIN, '*'}     # p. ej. http://<bucket>.s3-website-us-east-1.amazonaws.com
+      allowedHeaders: [Content-Type, Authorization]
+      allowedMethods: [GET, POST, PUT, DELETE, OPTIONS]
+  # Sin VPC: la Lambda sale a internet, llega a los RDS públicos y a DynamoDB por su endpoint público.
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: [dynamodb:PutItem, dynamodb:Query]
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:AUDIT_TABLE, 'billing_audit_log'}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${env:AUDIT_TABLE, 'billing_audit_log'}/index/*
+  environment:
+    BILLING_DB_ENGINE: ${env:BILLING_DB_ENGINE, 'mysql'}
+    BILLING_DB_HOST: ${env:BILLING_DB_HOST, ''}
+    BILLING_DB_PORT: ${env:BILLING_DB_PORT, '3306'}
+    BILLING_DB_NAME: ${env:BILLING_DB_NAME, 'billing_db'}
+    BILLING_DB_USER: ${env:BILLING_DB_USER, ''}
+    BILLING_DB_PASSWORD: ${env:BILLING_DB_PASSWORD, ''}
+    CATALOG_DB_ENGINE: ${env:CATALOG_DB_ENGINE, 'postgres'}
+    CATALOG_DB_HOST: ${env:CATALOG_DB_HOST, ''}
+    CATALOG_DB_PORT: ${env:CATALOG_DB_PORT, '5432'}
+    CATALOG_DB_NAME: ${env:CATALOG_DB_NAME, 'catalog_db'}
+    CATALOG_DB_USER: ${env:CATALOG_DB_USER, ''}
+    CATALOG_DB_PASSWORD: ${env:CATALOG_DB_PASSWORD, ''}
+    JWT_SECRET: ${env:JWT_SECRET}   # obligatorio: el deploy falla si no está definido
+    SESSION_TTL_MS: ${env:SESSION_TTL_MS, '1800000'}
+    DEMO_PASSWORD: ${env:DEMO_PASSWORD, 'demo1234'}
+    AUDIT_BACKEND: ${env:AUDIT_BACKEND, 'dynamodb'}
+    AUDIT_TABLE: ${env:AUDIT_TABLE, 'billing_audit_log'}
+    AUDIT_REQUIRED: ${env:AUDIT_REQUIRED, 'false'}
+    CORS_ORIGINS: ${env:FRONTEND_ORIGIN, '*'}
+
+custom:
+  wsgi:
+    app: wsgi.app
+  pythonRequirements:
+    dockerizePip: non-linux
+
+functions:
+  api:
+    handler: wsgi.handler
+    events:
+      - httpApi: '*'
