@@ -2,7 +2,7 @@
 
 | Carpeta | Contenido |
 |---|---|
-| `mysql/` | RDS MySQL 8 (facturación): `01_schema.sql` (DDL, destructivo), `02_set_demo_passwords.sql`, `03_rubrica_ext.sql` (descuentos, retenciones, asientos contables, cierres fiscales) |
+| `mysql/` | RDS MySQL 8 (facturación): `01_schema.sql` (DDL, destructivo), `02_set_demo_passwords.sql`, `03_rubrica_ext.sql` (descuentos, retenciones, asientos contables, cierres fiscales), `04_seed_customers.sql` y `05_roles_migration.sql` (migración idempotente de roles para una BD ya existente) |
 | `postgres/` | RDS PostgreSQL (catálogo): `01_schema.sql`, `02_compat.sql`, `03_rubrica_ext.sql` (tipo de impuesto, auditoría de tarifas) |
 | `procedures/` | Stored Procedures: `mysql_procedures.sql` y `postgres_procedures.sql` |
 | `dynamodb/` | Esquema de las tablas DynamoDB e índices |
@@ -22,16 +22,21 @@ python database/apply.py --fresh    # DESTRUCTIVO: recrea las tablas
 
 ```bash
 python database/seed/generate_seed.py    # regenera 04_seed*.sql (semilla fija, determinista)
-python database/apply.py --seed          # 105 servicios, 50 características, 50 clientes
+python database/apply.py --seed          # 104 servicios, 50 características, 40 clientes
 python database/seed/seed_invoices.py    # ~150 facturas en 6 meses usando los SPs + cierres fiscales
 ```
 
+Los datos sintéticos versionados están en `04_seed*.sql`: cargan el catálogo (PostgreSQL) y los clientes
+(MySQL). Las **facturas no son DML versionado**: no existe un `04_seed_invoices.sql`, sino que el
+historial se genera en ejecución con `python database/seed/seed_invoices.py` (por omisión 150
+facturas en ~6 meses) llamando a los Stored Procedures y ejecutando los cierres fiscales.
+
 | Dato | Volumen | Rúbrica |
 |---|---|---|
-| Servicios | 105 (8 categorías) | ≥ 100 |
-| Características | 50 (441 asignaciones) | ≥ 50 |
-| Clientes | 50 | — |
-| Facturas | ~158 (borrador, emitida, pagada, cancelada) | — |
+| Servicios | 104 (8 categorías) | ≥ 100 |
+| Características | 50 (419 asignaciones) | ≥ 50 |
+| Clientes | 40 | — |
+| Facturas | ~150 (borrador, emitida, pagada, cancelada; generadas con `seed_invoices.py`) | — |
 
 ## Stored Procedures vs. rúbrica (Proyecto C)
 

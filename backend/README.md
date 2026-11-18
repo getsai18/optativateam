@@ -27,7 +27,7 @@ backend/
 │   ├── audit.py          # DynamoDB (billing_audit_log) o memoria
 │   └── views/            # auth, customers, users, catalog, taxes, invoices, payments, reports, dashboard, audit
 ├── functions/            # Lambdas independientes: authorizer, cart, tax_rate_sync
-├── tests/                # pytest (126 pruebas, sin base de datos)
+├── tests/                # pytest (140 pruebas: 133 locales + 7 de integración con BD)
 ├── requirements.txt      # dependencias de la Lambda
 └── requirements-dev.txt  # + pytest
 ```
