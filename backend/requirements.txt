@@ -7,3 +7,5 @@ psycopg[binary]>=3.2
 boto3>=1.35
 python-dotenv>=1.0
 apig-wsgi>=2.18
+# dependencia de psycopg; pip no la resuelve al empaquetar para otra version de Python
+typing-extensions>=4.12

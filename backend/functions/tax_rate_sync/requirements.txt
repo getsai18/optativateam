@@ -1,1 +1,3 @@
 psycopg[binary]>=3.2
+# dependencia de psycopg; pip no la resuelve al empaquetar para otra version de Python
+typing-extensions>=4.12
