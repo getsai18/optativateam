@@ -65,6 +65,8 @@ export function InvoiceRail({ invoice, payments }: { invoice: Invoice; payments:
         </p>
         <p className="mt-1 text-sm text-muted tabular-nums">
           {t('invoices.rail.taxesLine', { subtotal: formatMoney(invoice.subtotal), taxes: formatMoney(invoice.taxTotal) })}
+          {(invoice.discountTotal ?? 0) > 0 ? ` − ${formatMoney(invoice.discountTotal ?? 0)} ${t('invoices.rail.discount')}` : ''}
+          {(invoice.withholdingTotal ?? 0) > 0 ? ` − ${formatMoney(invoice.withholdingTotal ?? 0)} ${t('invoices.rail.withholdings')}` : ''}
         </p>
       </section>
 

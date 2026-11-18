@@ -183,3 +183,9 @@ def test_service_price_change_is_audited(client, app, store):
     assert history[0]["newPrice"] == 5000.0
     assert history[0]["reason"] == "Ajuste anual"
     assert history[0]["changedBy"] == "usr_1"
+
+
+def test_rates_keep_four_decimals(client, app, store):
+    store.taxes[1]["current_rate"] = 0.1067
+    taxes = client.get("/taxes", headers=auth_headers(app)).get_json()
+    assert taxes[0]["currentRate"] == 0.1067

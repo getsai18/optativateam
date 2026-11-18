@@ -3,7 +3,13 @@ from .domain import encode_id, iso_ms, round2
 
 
 def _num(value) -> float:
+    """Importes en dinero: 2 decimales."""
     return round2(db.to_number(value))
+
+
+def _rate(value) -> float:
+    """Tasas y porcentajes (0.1067 = 10.67 %): no se redondean a 2 decimales."""
+    return round(db.to_number(value), 6)
 
 
 def customer_json(row: dict) -> dict:
@@ -38,7 +44,7 @@ def tax_json(row: dict) -> dict:
         "id": encode_id("tax", row["id"]),
         "code": row["code"],
         "name": row["name"],
-        "currentRate": _num(row["current_rate"]),
+        "currentRate": _rate(row["current_rate"]),
         "kind": row.get("kind") or "TRANSFER",
     }
 
@@ -47,7 +53,7 @@ def tax_history_json(row: dict) -> dict:
     return {
         "id": encode_id("txh", row["id"]),
         "taxId": encode_id("tax", row["tax_id"]),
-        "rate": _num(row["rate"]),
+        "rate": _rate(row["rate"]),
         "validFrom": db.date_str(row["valid_from"]),
         "validTo": db.date_str(row["valid_to"]),
     }
@@ -113,7 +119,7 @@ def invoice_json(row: dict, details: list[dict], taxes_by_detail: dict[int, list
                 "taxId": encode_id("tax", tax["tax_id"]),
                 "code": tax["code"],
                 "kind": tax.get("kind") or "TRANSFER",
-                "rate": _num(tax["rate"]),
+                "rate": _rate(tax["rate"]),
                 "amount": _num(tax["amount"]),
             }
             for tax in taxes_by_detail.get(int(detail["id"]), [])
@@ -148,7 +154,7 @@ def invoice_json(row: dict, details: list[dict], taxes_by_detail: dict[int, list
         },
         "lines": lines,
         "subtotal": _num(row["subtotal"]),
-        "discountPct": _num(row.get("discount_pct") or 0),
+        "discountPct": _rate(row.get("discount_pct") or 0),
         "discountTotal": _num(row.get("discount_total") or 0),
         "taxTotal": _num(row["tax_total"]),
         "withholdingTotal": _num(row.get("withholding_total") or 0),
