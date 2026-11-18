@@ -65,10 +65,15 @@ def split_mysql(script: str) -> list[str]:
     return statements
 
 
-def _has_sql(text: str) -> bool:
+def _code_only(text: str) -> str:
+    """Texto sin comentarios SQL (-- y /* */), para analizar la sentencia real."""
     without_comments = re.sub(r"--[^\n]*", "", text)
     without_comments = re.sub(r"/\*.*?\*/", "", without_comments, flags=re.DOTALL)
-    return bool(without_comments.strip())
+    return without_comments.strip()
+
+
+def _has_sql(text: str) -> bool:
+    return bool(_code_only(text))
 
 
 def apply_mysql(env: dict[str, str], files: list[str]) -> None:
@@ -89,7 +94,9 @@ def apply_mysql(env: dict[str, str], files: list[str]) -> None:
             for rel in files:
                 statements = split_mysql((ROOT / rel).read_text(encoding="utf-8"))
                 for statement in statements:
-                    if re.match(r"^\s*(CREATE\s+DATABASE|USE)\b", statement, re.IGNORECASE):
+                    # Los comentarios del script pueden preceder a CREATE DATABASE / USE:
+                    # se ignoran para que el usuario de aplicación no intente crear la base.
+                    if re.match(r"^\s*(CREATE\s+DATABASE|USE)\b", _code_only(statement), re.IGNORECASE):
                         continue  # la base ya viene de BILLING_DB_NAME
                     cur.execute(statement)
                     while cur.nextset():
