@@ -1,12 +1,14 @@
 # 3. Modelo relacional — RDS MySQL 8 (facturación)
 
-Base `Facturacion_Mysql` (RDS `db.t4g.micro`, 20 GB gp2, TLS). **11 tablas**: usuarios, clientes, emisor,
-facturas, líneas, desglose de impuestos, folios, pagos, reglas de descuento, asientos contables y cierres
-fiscales. Scripts: `database/mysql/01_schema.sql` (DDL base) y `database/mysql/03_rubrica_ext.sql`
-(extensión de la rúbrica). Stored Procedures: `database/procedures/mysql_procedures.sql`.
+Base `Facturacion_Mysql` (RDS `db.t4g.micro`, 20 GB gp2, TLS). **12 tablas**: roles, usuarios, clientes,
+emisor, facturas, líneas, desglose de impuestos, folios, pagos, reglas de descuento, asientos contables y
+cierres fiscales. Scripts: `database/mysql/01_schema.sql` (DDL base), `database/mysql/03_rubrica_ext.sql`
+(extensión de la rúbrica) y `database/mysql/05_roles_migration.sql` (migración idempotente de roles para una
+base ya existente). Stored Procedures: `database/procedures/mysql_procedures.sql`.
 
 ```mermaid
 erDiagram
+    app_role ||--o{ app_user : "clasifica"
     customer ||--o{ app_user : "cuenta con rol CUSTOMER"
     customer ||--o{ invoice : "recibe"
     customer ||--o{ discount_rule : "descuento del cliente"
@@ -31,12 +33,18 @@ erDiagram
         datetime created_at
         datetime updated_at
     }
+    app_role {
+        tinyint id PK
+        varchar code UK "ADMIN BILLER CUSTOMER"
+        varchar description
+    }
     app_user {
         int id PK
         varchar email UK
         varchar password_hash "bcrypt"
         varchar full_name
         varchar role "ADMIN BILLER CUSTOMER"
+        tinyint role_id FK "normaliza role"
         int customer_id FK "solo rol CUSTOMER"
         tinyint active
         datetime created_at
@@ -147,6 +155,8 @@ erDiagram
 
 | Tabla | Restricción | Propósito |
 |---|---|---|
+| `app_role` | `UNIQUE (code)`, tres filas sembradas: `ADMIN`, `BILLER`, `CUSTOMER` | Catálogo normalizado de roles |
+| `app_user.role_id` | `NOT NULL`, FK a `app_role(id)`; los triggers `trg_app_user_bi`/`trg_app_user_bu` lo derivan de `role` | Roles normalizados sin romper la API, que sigue escribiendo `role` |
 | `app_user` | `CHECK (role='CUSTOMER' AND customer_id IS NOT NULL) OR (role<>'CUSTOMER' AND customer_id IS NULL)` | Solo los clientes se ligan a un `customer` |
 | `invoice` | `CHECK status IN (...)`, `CHECK` motivo obligatorio si `CANCELLED`, importes ≥ 0, `discount_pct` entre 0 y 1 | Máquina de estados y montos válidos |
 | `invoice_detail` | `UNIQUE (invoice_id, service_id)`, cantidad 1–9999 | Un servicio por factura |
@@ -168,5 +178,7 @@ erDiagram
 
 ## Volumen
 
-50 clientes, ~158 facturas (borradores, emitidas, pagadas y canceladas en 6 meses), ~390 líneas, ~730 asientos
-contables y 14 cierres fiscales. Generados con `database/seed/` usando los propios Stored Procedures.
+40 clientes, ~150 facturas (borradores, emitidas, pagadas y canceladas en 6 meses), ~390 líneas, ~730 asientos
+contables y 14 cierres fiscales. Los clientes se siembran con `database/mysql/04_seed_customers.sql`;
+las facturas **no son DML versionado**: se generan en ejecución con
+`python database/seed/seed_invoices.py` usando los propios Stored Procedures.

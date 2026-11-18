@@ -22,7 +22,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 ENV_FILE = ROOT.parent / "backend" / ".env"
 
-MYSQL_BASE = ["mysql/03_rubrica_ext.sql", "procedures/mysql_procedures.sql"]
+MYSQL_BASE = [
+    "mysql/03_rubrica_ext.sql",
+    "mysql/05_roles_migration.sql",  # idempotente: normaliza roles en una BD ya existente
+    "procedures/mysql_procedures.sql",
+]
 POSTGRES_BASE = ["postgres/02_compat.sql", "postgres/03_rubrica_ext.sql", "procedures/postgres_procedures.sql"]
 MYSQL_FRESH = ["mysql/01_schema.sql"]
 POSTGRES_FRESH = ["postgres/01_schema.sql"]
