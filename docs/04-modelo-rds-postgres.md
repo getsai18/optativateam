@@ -1,6 +1,6 @@
 # 4. Modelo relacional — RDS PostgreSQL (catálogo)
 
-Base `postgres` (RDS PostgreSQL 18, `db.t3.micro`, 20 GB gp2, TLS). Contiene impuestos con su historial
+Base `postgres` (RDS PostgreSQL 18, `db.t4g.micro`, 20 GB gp2, TLS). Contiene impuestos con su historial
 de tasas, servicios con su historial de precios, características y las asociaciones entre ellos:
 **7 tablas**. Scripts: `database/postgres/01_schema.sql`, `02_compat.sql` y `03_rubrica_ext.sql`.
 Stored Procedures: `database/procedures/postgres_procedures.sql`.

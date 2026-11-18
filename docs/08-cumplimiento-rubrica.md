@@ -26,7 +26,7 @@ Evidencia en el repositorio para cada criterio de [RUBRICA.md](RUBRICA.md).
 |---|---|
 | Integración API Gateway, Lambda, DynamoDB y RDS | [01](01-arquitectura-aws.md); stack desplegado y probado de punta a punta |
 | `LabRole` | Todas las Lambdas en `infra/template.yaml`; no se crean roles IAM |
-| Recursos mínimos | RDS `db.t3.micro` con 20 GB; Lambda 128/256 MB; DynamoDB On-Demand; logs de 7 días; sin EC2/NAT/ALB |
+| Recursos mínimos | RDS `db.t4g.micro` con 20 GB; Lambda 128/256 MB; DynamoDB On-Demand; logs de 7 días; sin EC2/NAT/ALB |
 | Variables de entorno y credenciales temporales | Endpoints y secretos por parámetros `NoEcho` → variables de Lambda; `deploy.py` usa el perfil `learnerlab` |
 | Automatización | `python infra/deploy.py` despliega todo; `python database/apply.py` aplica esquema y SPs ([DESPLIEGUE.md](DESPLIEGUE.md)) |
 

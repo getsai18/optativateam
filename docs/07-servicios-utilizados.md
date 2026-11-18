@@ -19,8 +19,8 @@ se reparte en **dos cuentas** de Learner Lab: una de datos (RDS) y una de aplica
 | **CloudWatch Logs** | Aplicación | Logs de las 4 Lambdas | Retención de 7 días |
 | **CloudFormation (SAM)** | Aplicación | Infraestructura como código (`infra/template.yaml`) | Stack `billing-<stage>`; sin creación de roles IAM |
 | **IAM** | Aplicación | Rol de ejecución de las Lambdas | `LabRole` preconfigurado |
-| **RDS MySQL 8.4** | Datos | Base transaccional de facturación (11 tablas, 10 SPs) | `db.t3.micro`, 20 GB gp2, TLS obligatorio |
-| **RDS PostgreSQL 18** | Datos | Catálogo de servicios, características e impuestos (7 tablas, 4 SPs + trigger) | `db.t3.micro`, 20 GB gp2, TLS obligatorio |
+| **RDS MySQL 8.4** | Datos | Base transaccional de facturación (11 tablas, 10 SPs) | `db.t4g.micro`, 20 GB gp2, TLS obligatorio |
+| **RDS PostgreSQL 18** | Datos | Catálogo de servicios, características e impuestos (7 tablas, 4 SPs + trigger) | `db.t4g.micro`, 20 GB gp2, TLS obligatorio |
 
 ## 7.2 Servicios descartados
 
@@ -46,7 +46,7 @@ se reparte en **dos cuentas** de Learner Lab: una de datos (RDS) y una de aplica
 
 | Restricción | Cómo se atiende |
 |---|---|
-| RDS `db.t3.micro` o `db.t4g.micro`, máximo 20 GB | Ambas instancias son `db.t3.micro` con 20 GB gp2 |
+| RDS `db.t3.micro` o `db.t4g.micro`, máximo 20 GB | Ambas instancias son `db.t4g.micro` (Graviton) con 20 GB gp2 |
 | Apagar RDS fuera de horario | Se detienen las dos instancias al terminar la sesión de trabajo |
 | DynamoDB On-Demand | Las cuatro tablas usan `PAY_PER_REQUEST` |
 | Lambda entre 128 y 256 MB | `billing-api` 256 MB; las otras tres 128 MB |

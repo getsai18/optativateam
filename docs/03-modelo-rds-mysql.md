@@ -1,6 +1,6 @@
 # 3. Modelo relacional — RDS MySQL 8 (facturación)
 
-Base `Facturacion_Mysql` (RDS `db.t3.micro`, 20 GB gp2, TLS). **11 tablas**: usuarios, clientes, emisor,
+Base `Facturacion_Mysql` (RDS `db.t4g.micro`, 20 GB gp2, TLS). **11 tablas**: usuarios, clientes, emisor,
 facturas, líneas, desglose de impuestos, folios, pagos, reglas de descuento, asientos contables y cierres
 fiscales. Scripts: `database/mysql/01_schema.sql` (DDL base) y `database/mysql/03_rubrica_ext.sql`
 (extensión de la rúbrica). Stored Procedures: `database/procedures/mysql_procedures.sql`.

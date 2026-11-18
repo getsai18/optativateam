@@ -72,5 +72,5 @@ Ejecutar en local contra RDS: `python backend/wsgi.py` (API en `:5000`) y en `fr
 
 | Cuenta | Recursos |
 |---|---|
-| Datos | RDS MySQL y RDS PostgreSQL (`db.t3.micro`, 20 GB, TLS) |
+| Datos | RDS MySQL y RDS PostgreSQL (`db.t4g.micro`, 20 GB, TLS) |
 | Aplicación | API Gateway, 4 Lambdas (`LabRole`), EventBridge, 4 tablas DynamoDB On-Demand, S3 + API Gateway como proxy HTTPS del frontend |

@@ -30,7 +30,7 @@ No se necesita Docker ni Serverless Framework: las dependencias de Lambda se des
 ## 1. RDS en la cuenta de datos (solo la primera vez)
 
 1. **RDS → Create database**, una instancia **MySQL 8** y otra **PostgreSQL 16+**:
-   - Plantilla *Free tier/Dev*, clase **`db.t3.micro`**, almacenamiento **gp2 de 20 GB** (sin autoscaling).
+   - Plantilla *Free tier/Dev*, clase **`db.t4g.micro`** (o `db.t3.micro`), almacenamiento **gp2 de 20 GB** (sin autoscaling).
    - **Public access: Yes**. Security group propio para cada una.
 2. Security groups, *Inbound*: MySQL/Aurora 3306 y PostgreSQL 5432 desde `0.0.0.0/0`.
    Las Lambdas no usan VPC y no tienen IP fija. La conexión exige TLS y usa contraseñas largas.

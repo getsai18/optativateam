@@ -2,21 +2,13 @@ import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { AlertCircle, ShieldCheck } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Button, Input } from '../../../shared/components/ui';
 import { ApiError, errorMessage } from '../../../shared/lib/errors';
 import { useI18n } from '../../../shared/i18n';
-import type { Role } from '../../../shared/types';
 import { ROLE_HOME, useAuth } from '../hooks/useAuth';
 import { useAuthStore } from '../store/authStore';
-
-const DEMO_ACCOUNTS: { role: Role; email: string }[] = [
-  { role: 'ADMIN', email: 'admin@northwind.test' },
-  { role: 'BILLER', email: 'biller@northwind.test' },
-  { role: 'CUSTOMER', email: 'customer@client.test' },
-];
-const DEMO_PASSWORD = 'demo1234';
 
 export function LoginPage() {
   const { user, login } = useAuth();
@@ -90,22 +82,6 @@ export function LoginPage() {
           {t('login.submit')}
         </Button>
       </form>
-
-      <div className="border-t border-line pt-5">
-        <p className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted">
-          <ShieldCheck size={16} aria-hidden="true" /> {t('login.demoTitle')}
-        </p>
-        <div className="flex flex-col gap-2">
-          {DEMO_ACCOUNTS.map((acc) => (
-            <Button key={acc.role} disabled={isSubmitting} onClick={() => signIn(acc.email, DEMO_PASSWORD)}>
-              {t('login.demoAs', { role: t(`roles.${acc.role}`) })}
-            </Button>
-          ))}
-        </div>
-        <p className="mt-3 text-sm text-muted">
-          {t('login.demoHint')} <span className="font-mono">{DEMO_PASSWORD}</span>
-        </p>
-      </div>
     </div>
   );
 }
