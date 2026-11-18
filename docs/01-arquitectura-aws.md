@@ -8,7 +8,8 @@ flowchart LR
 
     subgraph APP["Cuenta de aplicación (LabRole)"]
     subgraph FE["Frontend"]
-        S3["S3<br/>sitio estático React"]
+        CF["API Gateway<br/>proxy HTTPS del sitio"]
+        S3["S3<br/>build React"]
     end
 
     subgraph API["Entrada de la API"]
@@ -32,7 +33,8 @@ flowchart LR
         PG[("RDS PostgreSQL 18<br/>catálogo<br/>7 tablas + 4 SPs + trigger")]
     end
 
-    U --> S3
+    U -->|"HTTPS"| CF
+    CF --> S3
     U -->|"HTTPS + Bearer JWT"| APIGW
     APIGW -->|"rutas protegidas"| AUTH
     APIGW --> L_API
@@ -51,7 +53,8 @@ flowchart LR
 
 ## Flujo de una petición
 
-1. El navegador descarga el frontend (React + Vite) desde **S3**.
+1. El navegador descarga el frontend (React + Vite) por HTTPS desde un **API Gateway HTTP API** que hace de proxy (`HTTP_PROXY`) al sitio web de S3.
+   Learner Lab no permite CloudFront; así se obtiene HTTPS sin servicios adicionales.
 2. El frontend llama a **API Gateway** con el token JWT en el encabezado `Authorization`.
 3. El **Lambda authorizer** valida la firma y la vigencia del token. Si no es válido, responde 401
    sin llegar al backend. `POST /auth/login` no pasa por el authorizer.

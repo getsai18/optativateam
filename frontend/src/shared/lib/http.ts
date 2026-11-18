@@ -8,7 +8,7 @@ const BASE_URL = trimUrl(import.meta.env.VITE_API_URL as string | undefined);
 /** API Gateway that fronts the AWS Lambdas (authorizer + cart), e.g. https://abc123.execute-api.us-east-1.amazonaws.com */
 const LAMBDA_URL = trimUrl(import.meta.env.VITE_LAMBDA_URL as string | undefined);
 
-const KNOWN_CODES: readonly ApiErrorCode[] = ['UNAUTHORIZED', 'FORBIDDEN', 'NOT_FOUND', 'VALIDATION', 'CONFLICT', 'INTERNAL'];
+const KNOWN_CODES: readonly ApiErrorCode[] = ['UNAUTHORIZED', 'FORBIDDEN', 'NOT_FOUND', 'VALIDATION', 'CONFLICT', 'RATE_LIMITED', 'INTERNAL'];
 
 const STATUS_TO_CODE: Record<number, ApiErrorCode> = {
   400: 'VALIDATION',
@@ -17,6 +17,7 @@ const STATUS_TO_CODE: Record<number, ApiErrorCode> = {
   404: 'NOT_FOUND',
   409: 'CONFLICT',
   422: 'VALIDATION',
+  429: 'RATE_LIMITED',
 };
 
 interface RequestOptions {

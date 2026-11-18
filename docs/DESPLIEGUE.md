@@ -5,10 +5,10 @@ El sistema usa **dos cuentas de Learner Lab**:
 | Cuenta | Qué contiene | Cómo se prepara |
 |---|---|---|
 | **Datos** | RDS MySQL (`Facturacion_Mysql`) y RDS PostgreSQL (`postgres`) | Una vez: crear instancias y aplicar scripts (pasos 1–3) |
-| **Aplicación** | API Gateway, 4 Lambdas (LabRole), EventBridge, 4 tablas DynamoDB, S3 | Cada vez: `python infra/deploy.py` (paso 5) |
+| **Aplicación** | API Gateway, 4 Lambdas (LabRole), EventBridge, 4 tablas DynamoDB, S3 + API Gateway (proxy HTTPS) | Cada vez: `python infra/deploy.py` (paso 5) |
 
 ```
-Navegador ──► S3 (frontend React)
+Navegador ──► API Gateway (proxy HTTPS) ──► S3 sitio web (frontend React)
     └──► API Gateway HTTP API ──► Lambda authorizer (JWT)
               ├──► Lambda billing-api (Flask) ──► RDS MySQL / RDS PostgreSQL (cuenta de datos, TLS)
               │                                └──► DynamoDB (auditoría)
@@ -101,7 +101,8 @@ El script:
 5. Prueba `GET /health` e imprime las URLs:
 
 ```
-Frontend : http://billing-frontend-<cuenta>-dev.s3-website-us-east-1.amazonaws.com
+Frontend : https://<id-frontend>.execute-api.us-east-1.amazonaws.com  (HTTPS)
+S3 (HTTP): http://billing-frontend-<cuenta>-dev.s3-website-us-east-1.amazonaws.com
 API      : https://<id>.execute-api.us-east-1.amazonaws.com
 ```
 

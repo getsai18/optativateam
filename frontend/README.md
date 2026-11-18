@@ -1,6 +1,6 @@
 # Frontend — Northwind Billing (React + TypeScript + Vite)
 
-Interfaz web del sistema de facturación. Se publica como sitio estático en **S3** y consume la API de
+Interfaz web del sistema de facturación. Se publica en un bucket **S3** servido por HTTPS mediante un **API Gateway** que hace de proxy y consume la API de
 API Gateway. Toda la información viene del backend; no hay datos simulados.
 
 ## Ejecutar

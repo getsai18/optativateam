@@ -188,6 +188,8 @@ def write_catalog() -> None:
         "UPDATE service SET code = 'CON-0001', name = 'Technical Advisory Hour',",
         "       description = 'Hora de asesoría técnica remota.', category = 'Consulting'",
         " WHERE id = 1 AND code = 'EWE';",
+        "-- Precio realista (el trigger lo registra en service_price_history)",
+        "UPDATE service SET base_price = 650.00 WHERE code = 'CON-0001' AND base_price < 100;",
         "",
         "-- Características",
         "INSERT INTO feature (name, description, unit) VALUES",

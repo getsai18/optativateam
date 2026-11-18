@@ -5,7 +5,7 @@ Arquitectura en **dos cuentas** de Learner Lab:
 | Cuenta | Recursos | Cómo se crea |
 |---|---|---|
 | Datos | RDS MySQL (facturación) y RDS PostgreSQL (catálogo), públicos con TLS | Ya existen; esquema con `python database/apply.py` |
-| Aplicación | API Gateway HTTP API, 4 Lambdas (LabRole), EventBridge, 4 tablas DynamoDB, S3 (frontend) | `python infra/deploy.py` |
+| Aplicación | API Gateway HTTP API, 4 Lambdas (LabRole), EventBridge, 4 tablas DynamoDB, S3 + API Gateway proxy HTTPS (frontend) | `python infra/deploy.py` |
 
 `template.yaml` es una plantilla SAM (CloudFormation). No crea roles IAM: todas las Lambdas usan `LabRole`.
 Lambdas de 128 MB (`billing-api` 256 MB), DynamoDB On-Demand y logs con retención de 7 días.
@@ -42,8 +42,9 @@ python infra/destroy.py --profile learnerlab
 | Ruta | Lambda | Authorizer |
 |---|---|---|
 | `POST /auth/login`, `GET /health` | `billing-api` | No |
-| `ANY /cart` | `billing-cart` | Sí |
-| `ANY /{proxy+}` | `billing-api` | Sí (JWT HS256, caché 300 s) |
+| `GET, PUT, DELETE /cart` | `billing-cart` | Sí |
+| `GET, POST, PUT, DELETE /{proxy+}` | `billing-api` | Sí (JWT HS256, caché 300 s) |
+| `OPTIONS` (preflight CORS) | API Gateway | No (lo responde API Gateway) |
 | EventBridge `cron(5 0 * * ? *)` | `billing-tax-rate-sync` | — |
 
 ## Red

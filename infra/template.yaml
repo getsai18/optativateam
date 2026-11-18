@@ -65,7 +65,7 @@ Globals:
 
 Resources:
   # ---------------------------------------------------------------------------
-  # Frontend: sitio estatico en S3 (SPA: index.html tambien como documento de error)
+  # Frontend: S3 con alojamiento web (index.html tambien como documento de error para la SPA).
   # ---------------------------------------------------------------------------
   FrontendBucket:
     Type: AWS::S3::Bucket
@@ -98,6 +98,57 @@ Resources:
             Principal: '*'
             Action: s3:GetObject
             Resource: !Sub ${FrontendBucket.Arn}/*
+
+  # HTTPS para el frontend: Learner Lab no permite CloudFront, asi que un HTTP API hace de
+  # proxy (HTTP_PROXY) hacia el endpoint web de S3 y expone el sitio en https://<id>.execute-api...
+  FrontendHttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub billing-frontend-${Stage}
+      ProtocolType: HTTP
+      Description: Proxy HTTPS hacia el sitio estatico en S3
+
+  FrontendRootIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref FrontendHttpApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: GET
+      IntegrationUri: !Sub http://${FrontendBucket}.s3-website-${AWS::Region}.amazonaws.com/
+      PayloadFormatVersion: '1.0'
+
+  FrontendProxyIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref FrontendHttpApi
+      IntegrationType: HTTP_PROXY
+      IntegrationMethod: GET
+      IntegrationUri: !Sub http://${FrontendBucket}.s3-website-${AWS::Region}.amazonaws.com/{proxy}
+      PayloadFormatVersion: '1.0'
+
+  FrontendRootRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref FrontendHttpApi
+      RouteKey: GET /
+      Target: !Sub integrations/${FrontendRootIntegration}
+
+  FrontendProxyRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref FrontendHttpApi
+      RouteKey: GET /{proxy+}
+      Target: !Sub integrations/${FrontendProxyIntegration}
+
+  FrontendStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref FrontendHttpApi
+      StageName: $default
+      AutoDeploy: true
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 100
+        ThrottlingRateLimit: 50
 
   # ---------------------------------------------------------------------------
   # DynamoDB (On-Demand): auditoria, eventos de factura, sesiones y carritos
@@ -188,6 +239,7 @@ Resources:
       StageName: $default
       CorsConfiguration:
         AllowOrigins:
+          - !Sub https://${FrontendHttpApi}.execute-api.${AWS::Region}.amazonaws.com
           - !Sub http://billing-frontend-${AWS::AccountId}-${Stage}.s3-website-${AWS::Region}.amazonaws.com
           - http://localhost:5173
         AllowHeaders: [Content-Type, Authorization]
@@ -260,7 +312,7 @@ Resources:
           AUDIT_BACKEND: dynamodb
           AUDIT_TABLE: !Ref AuditLogTable
           AUDIT_REQUIRED: 'false'
-          CORS_ORIGINS: !Sub http://billing-frontend-${AWS::AccountId}-${Stage}.s3-website-${AWS::Region}.amazonaws.com,http://localhost:5173
+          CORS_ORIGINS: !Sub https://${FrontendHttpApi}.execute-api.${AWS::Region}.amazonaws.com,http://billing-frontend-${AWS::AccountId}-${Stage}.s3-website-${AWS::Region}.amazonaws.com,http://localhost:5173
       Events:
         Login:
           Type: HttpApi
@@ -278,11 +330,30 @@ Resources:
             Path: /health
             Auth:
               Authorizer: NONE
-        Default:
+        # Sin ANY: OPTIONS no tiene ruta y API Gateway responde el preflight CORS sin pasar por el authorizer.
+        ProxyGet:
           Type: HttpApi
           Properties:
             ApiId: !Ref HttpApi
-            Method: ANY
+            Method: GET
+            Path: /{proxy+}
+        ProxyPost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Method: POST
+            Path: /{proxy+}
+        ProxyPut:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Method: PUT
+            Path: /{proxy+}
+        ProxyDelete:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Method: DELETE
             Path: /{proxy+}
 
   CartFunction:
@@ -296,13 +367,25 @@ Resources:
         Variables:
           CART_TABLE: !Ref InvoiceCartTable
           CART_TTL_DAYS: '7'
-          CORS_ORIGIN: !Sub http://billing-frontend-${AWS::AccountId}-${Stage}.s3-website-${AWS::Region}.amazonaws.com
+          CORS_ORIGIN: !Sub https://${FrontendHttpApi}.execute-api.${AWS::Region}.amazonaws.com
       Events:
-        Cart:
+        CartGet:
           Type: HttpApi
           Properties:
             ApiId: !Ref HttpApi
-            Method: ANY
+            Method: GET
+            Path: /cart
+        CartPut:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Method: PUT
+            Path: /cart
+        CartDelete:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Method: DELETE
             Path: /cart
 
   TaxRateSyncFunction:
@@ -354,7 +437,10 @@ Outputs:
     Description: URL base de la API (VITE_API_URL)
     Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
   FrontendUrl:
-    Description: URL del sitio
+    Description: URL del sitio (HTTPS)
+    Value: !Sub https://${FrontendHttpApi}.execute-api.${AWS::Region}.amazonaws.com
+  FrontendS3Url:
+    Description: Sitio directo en S3 (solo HTTP)
     Value: !GetAtt FrontendBucket.WebsiteURL
   FrontendBucketName:
     Value: !Ref FrontendBucket

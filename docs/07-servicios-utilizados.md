@@ -7,7 +7,8 @@ se reparte en **dos cuentas** de Learner Lab: una de datos (RDS) y una de aplica
 
 | Servicio | Cuenta | Uso en el proyecto | Configuración |
 |---|---|---|---|
-| **S3** | Aplicación | Frontend web estático (React + Vite) | Bucket `billing-frontend-<cuenta>-<stage>` con alojamiento web; `index.html` como documento de error para la SPA; lectura pública solo de objetos |
+| **S3** | Aplicación | Archivos del frontend (React + Vite) | Bucket `billing-frontend-<cuenta>-<stage>` con alojamiento web; solo lectura pública de objetos |
+| **API Gateway (proxy del frontend)** | Aplicación | Sirve el frontend por HTTPS | HTTP API con integraciones `HTTP_PROXY` (`GET /` y `GET /{proxy+}`) hacia el sitio web de S3; Learner Lab no permite CloudFront |
 | **API Gateway (HTTP API)** | Aplicación | Punto de entrada único de la API | CORS limitado al origen del frontend; throttling 25 req/s (ráfaga 50); authorizer en todas las rutas salvo `/auth/login` y `/health` |
 | **Lambda** `billing-api` | Aplicación | Backend Flask (adaptador `apig-wsgi`): clientes, catálogo, facturas, pagos, impuestos, usuarios, reportes, dashboard, auditoría | Python 3.12, **256 MB**, 20 s; variables de entorno para bases, JWT y auditoría |
 | **Lambda** `billing-authorizer` | Aplicación | Valida el JWT (HS256) antes de llegar al backend | 128 MB, 5 s; payload 1.0 (responde 401); caché de 300 s |
@@ -29,7 +30,6 @@ se reparte en **dos cuentas** de Learner Lab: una de datos (RDS) y una de aplica
 | **ALB / ELB** | Sin servidores que balancear; API Gateway cumple esa función |
 | **NAT Gateway / VPC** | Cobra por hora; las Lambdas llegan a RDS por su endpoint público con TLS |
 | **ElastiCache** | Cobra por hora y no aporta lo suficiente para el volumen del proyecto |
-| **CloudFront** | No necesario para la demo; S3 website basta y evita costos |
 
 ## 7.3 Tecnologías de aplicación
 

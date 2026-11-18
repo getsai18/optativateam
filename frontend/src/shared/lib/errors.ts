@@ -1,4 +1,11 @@
-export type ApiErrorCode = 'UNAUTHORIZED' | 'FORBIDDEN' | 'NOT_FOUND' | 'VALIDATION' | 'CONFLICT' | 'INTERNAL';
+export type ApiErrorCode =
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
+  | 'NOT_FOUND'
+  | 'VALIDATION'
+  | 'CONFLICT'
+  | 'RATE_LIMITED'
+  | 'INTERNAL';
 
 export class ApiError extends Error {
   readonly code: ApiErrorCode;

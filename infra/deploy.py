@@ -231,6 +231,8 @@ def smoke_test(outputs: dict[str, str]) -> None:
     try:
         with urllib.request.urlopen(outputs["ApiUrl"] + "/health", timeout=20) as response:
             print(f"    GET /health -> {response.status} {response.read().decode()[:60]}")
+        with urllib.request.urlopen(outputs["FrontendUrl"] + "/", timeout=20) as response:
+            print(f"    GET {outputs['FrontendUrl']}/ -> {response.status}")
     except Exception as exc:  # noqa: BLE001
         print(f"    GET /health falló: {exc}")
 
@@ -262,7 +264,9 @@ def main() -> None:
     smoke_test(outputs)
 
     log("Listo")
-    print(f"    Frontend : {outputs['FrontendUrl']}")
+    print(f"    Frontend : {outputs['FrontendUrl']}  (HTTPS)")
+    if outputs.get("FrontendS3Url"):
+        print(f"    S3 (HTTP): {outputs['FrontendS3Url']}")
     print(f"    API      : {outputs['ApiUrl']}")
     print("    Recuerda: el security group de los RDS (cuenta de datos) debe aceptar 3306/5432 desde Lambda.")
 

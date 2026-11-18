@@ -3,7 +3,7 @@ import { CalendarCheck } from 'lucide-react';
 import { Button, DataTable, EmptyState, Input, Money, PageHeader, Panel, PanelHeader, Select, Tabs, toast, type Column } from '../../../shared/components/ui';
 import { useI18n } from '../../../shared/i18n';
 import { useQuery } from '../../../shared/hooks/useQuery';
-import { formatDate, formatDateTime, formatMoney, toDateKey } from '../../../shared/lib/format';
+import { formatDate, formatMoney, toDateKey } from '../../../shared/lib/format';
 import { useAuth } from '../../auth';
 import {
   getAgingReport,
@@ -83,13 +83,11 @@ function ClosingsPanel({ canRun }: { canRun: boolean }) {
     { key: 'type', header: t('reports.closings.type'), cell: (r) => t(`reports.closings.type.${r.periodType}`) },
     { key: 'period', header: t('reports.closings.period'), cell: (r) => <span className="whitespace-nowrap">{formatDate(r.periodStart)}</span> },
     { key: 'count', header: t('reports.closings.invoices'), align: 'right', cell: (r) => `${r.invoiceCount} / ${r.cancelledCount}` },
-    { key: 'subtotal', header: t('invoices.totals.subtotal'), align: 'right', hideBelow: 'lg', cell: (r) => money(r.subtotal) },
     { key: 'discount', header: t('invoices.totals.discount'), align: 'right', hideBelow: 'lg', cell: (r) => money(r.discountTotal) },
-    { key: 'tax', header: t('invoices.totals.taxes'), align: 'right', hideBelow: 'lg', cell: (r) => money(r.taxTotal) },
+    { key: 'tax', header: t('reports.closings.taxes'), align: 'right', hideBelow: 'lg', cell: (r) => money(r.taxTotal) },
     { key: 'withholding', header: t('invoices.totals.withholdings'), align: 'right', hideBelow: 'lg', cell: (r) => money(r.withholdingTotal) },
     { key: 'total', header: t('invoices.totals.total'), align: 'right', cell: (r) => <Money className="font-semibold">{formatMoney(r.total)}</Money> },
     { key: 'collected', header: t('reports.closings.collected'), align: 'right', cell: (r) => money(r.collectedTotal) },
-    { key: 'closedAt', header: t('reports.closings.closedAt'), hideBelow: 'lg', cell: (r) => <span className="text-muted">{formatDateTime(r.closedAt)}</span> },
   ];
 
   return (

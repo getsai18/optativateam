@@ -8,7 +8,7 @@ descuentos, IVA y retenciones, pagos, cancelación con reversión contable, cier
 La lógica transaccional está en **14 Stored Procedures/funciones** sobre RDS, invocados desde la API.
 
 ```
-S3 (React) → API Gateway HTTP API → Lambda authorizer (JWT)
+API Gateway proxy HTTPS → S3 (React) · API Gateway HTTP API → Lambda authorizer (JWT)
                                  → Lambda billing-api (Flask) → RDS MySQL 8.4 (facturación, 11 tablas, 10 SPs)
                                                              → RDS PostgreSQL 18 (catálogo, 7 tablas, 4 SPs)
                                                              → DynamoDB (auditoría)
@@ -73,4 +73,4 @@ Ejecutar en local contra RDS: `python backend/wsgi.py` (API en `:5000`) y en `fr
 | Cuenta | Recursos |
 |---|---|
 | Datos | RDS MySQL y RDS PostgreSQL (`db.t3.micro`, 20 GB, TLS) |
-| Aplicación | API Gateway, 4 Lambdas (`LabRole`), EventBridge, 4 tablas DynamoDB On-Demand, S3 |
+| Aplicación | API Gateway, 4 Lambdas (`LabRole`), EventBridge, 4 tablas DynamoDB On-Demand, S3 + API Gateway como proxy HTTPS del frontend |

@@ -62,6 +62,9 @@ export const appDict: DictPair = {
     'login.error.email': 'Escribe tu correo electrónico',
     'login.error.emailInvalid': 'Escribe un correo válido, por ejemplo nombre@dominio.com',
     'login.error.password': 'Escribe tu contraseña',
+    'login.error.invalid': 'Correo o contraseña incorrectos',
+    'login.error.inactive': 'Tu cuenta está desactivada. Contacta al administrador.',
+    'login.error.rateLimited': 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.',
 
     'auth.point1': 'Factura en cuatro pasos con impuestos automáticos',
     'auth.point2': 'Las facturas emitidas quedan bloqueadas y auditadas',
@@ -152,6 +155,9 @@ export const appDict: DictPair = {
     'login.error.email': 'Enter your email',
     'login.error.emailInvalid': 'Enter a valid email address',
     'login.error.password': 'Enter your password',
+    'login.error.invalid': 'Invalid email or password',
+    'login.error.inactive': 'Your account is disabled. Contact the administrator.',
+    'login.error.rateLimited': 'Too many attempts. Wait a few minutes and try again.',
 
     'auth.point1': 'Invoice in four steps with automatic taxes',
     'auth.point2': 'Issued invoices are locked and auditable',

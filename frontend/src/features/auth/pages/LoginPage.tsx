@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { AlertCircle, ShieldCheck } from 'lucide-react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Button, Input } from '../../../shared/components/ui';
-import { errorMessage } from '../../../shared/lib/errors';
+import { ApiError, errorMessage } from '../../../shared/lib/errors';
 import { useI18n } from '../../../shared/i18n';
 import type { Role } from '../../../shared/types';
 import { ROLE_HOME, useAuth } from '../hooks/useAuth';
@@ -56,7 +56,10 @@ export function LoginPage() {
       // RoleGuard sends the user home if `from` is not allowed for the role.
       navigate(from ?? ROLE_HOME[claims.role], { replace: true });
     } catch (e) {
-      setServerError(errorMessage(e));
+      if (e instanceof ApiError && e.code === 'UNAUTHORIZED') setServerError(t('login.error.invalid'));
+      else if (e instanceof ApiError && e.code === 'FORBIDDEN') setServerError(t('login.error.inactive'));
+      else if (e instanceof ApiError && e.code === 'RATE_LIMITED') setServerError(t('login.error.rateLimited'));
+      else setServerError(errorMessage(e));
     }
   };
 
