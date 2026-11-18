@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Apagado programado de los RDS de la cuenta de datos (AWS Academy Learner Lab).
+  Se despliega EN LA CUENTA DE DATOS: los RDS viven ahí, no en la cuenta de aplicacion.
+  Sin VPC, sin roles IAM nuevos (usa LabRole) y sin recursos con comodines.
+
+Parameters:
+  DB_IDS:
+    Type: String
+    NoEcho: false
+    Description: >
+      CSV de identificadores de instancias RDS a apagar, p. ej. Facturacion_Mysql,postgres.
+      Solo se detienen las instancias listadas aqui. No contiene secretos.
+  LabRoleName:
+    Type: String
+    Default: LabRole
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [x86_64]
+    Timeout: 15
+    MemorySize: 128
+    Tags:
+      project: billing-system
+
+Resources:
+  RdsStopFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub billing-rds-stop-${AWS::AccountId}
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/${LabRoleName}
+      CodeUri: .
+      Handler: handler.handler
+      Environment:
+        Variables:
+          DB_IDS: !Ref DB_IDS
+      Events:
+        DailyStop:
+          Type: Schedule
+          Properties:
+            Name: !Sub billing-rds-stop-${AWS::AccountId}-daily
+            Description: Apaga los RDS a las 04:00 UTC (22:00 hora de CDMX)
+            Schedule: cron(0 4 * * ? *)
+
+  # Retencion corta de logs para no consumir credito del laboratorio.
+  RdsStopLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${RdsStopFunction}
+      RetentionInDays: 7
+
+Outputs:
+  FunctionName:
+    Description: Nombre de la Lambda de apagado (para invocarla o consultar sus logs)
+    Value: !Ref RdsStopFunction
+  RuleName:
+    Description: Regla de EventBridge que dispara el apagado diario
+    Value: !Sub billing-rds-stop-${AWS::AccountId}-daily
