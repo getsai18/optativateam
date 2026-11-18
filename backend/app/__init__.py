@@ -49,6 +49,12 @@ def _register_error_handlers(app: Flask) -> None:
     def _handle_method_not_allowed(_error):
         return jsonify({"code": "NOT_FOUND", "message": "Not found"}), 405
 
+    @app.errorhandler(database.BusinessRuleError)
+    def _handle_business_rule(error: database.BusinessRuleError):
+        message = error.message
+        code = "NOT_FOUND" if message.endswith("not found") else "CONFLICT"
+        return jsonify({"code": code, "message": message}), 404 if code == "NOT_FOUND" else 409
+
     @app.errorhandler(database.DuplicateKeyError)
     def _handle_duplicate(_error):
         return jsonify({"code": "CONFLICT", "message": "Conflict"}), 409

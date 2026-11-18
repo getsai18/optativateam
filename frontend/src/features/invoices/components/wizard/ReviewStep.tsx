@@ -19,7 +19,7 @@ export function ReviewStep({ view }: { view: BuilderView }) {
   const breakdown = totals.breakdown.map((b) => ({
     key: b.taxId,
     label: `${view.taxNames.get(b.taxId) ?? b.code} ${formatPercent(b.rate)}`,
-    amount: b.amount,
+    amount: b.kind === 'WITHHELD' ? -b.amount : b.amount,
   }));
 
   return (
@@ -74,7 +74,7 @@ export function ReviewStep({ view }: { view: BuilderView }) {
         </table>
       </div>
       <div className="flex justify-end">
-        <TotalsBlock className="w-full max-w-xs" subtotal={totals.subtotal} taxTotal={totals.taxTotal} total={totals.total} breakdown={breakdown} />
+        <TotalsBlock className="w-full max-w-xs" subtotal={totals.subtotal} taxTotal={totals.taxTotal} withholdingTotal={totals.withholdingTotal} total={totals.total} breakdown={breakdown} discountNote />
       </div>
     </div>
   );

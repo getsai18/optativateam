@@ -19,7 +19,7 @@ export interface BuilderView {
   totals: TotalsResult;
 }
 
-const EMPTY_TOTALS: TotalsResult = { lines: [], subtotal: 0, taxTotal: 0, total: 0, breakdown: [] };
+const EMPTY_TOTALS: TotalsResult = { lines: [], subtotal: 0, taxTotal: 0, withholdingTotal: 0, total: 0, breakdown: [] };
 
 /** Live totals for the invoice builder, computed with the same pure function the backend would use. */
 export function useBuilderView(): BuilderView {

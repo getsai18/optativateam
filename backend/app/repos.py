@@ -159,30 +159,12 @@ def tax_history_for(tax_id: int) -> list[dict]:
     )
 
 
-def open_tax_period(tax_id: int) -> dict | None:
-    return _catalog().one(
-        "SELECT * FROM tax_history WHERE tax_id = :tax_id AND valid_to IS NULL ORDER BY valid_from",
-        {"tax_id": tax_id},
-    )
 
 
-def close_tax_period(tax_id: int, valid_to: datetime.date) -> int:
-    return _catalog().execute(
-        "UPDATE tax_history SET valid_to = :valid_to WHERE tax_id = :tax_id AND valid_to IS NULL",
-        {"tax_id": tax_id, "valid_to": valid_to},
-    )
 
 
-def insert_tax_history(tax_id, rate, valid_from: datetime.date, changed_by) -> int:
-    return _catalog().insert(
-        "INSERT INTO tax_history (tax_id, rate, valid_from, valid_to, changed_by)"
-        " VALUES (:tax_id, :rate, :valid_from, NULL, :changed_by)",
-        {"tax_id": tax_id, "rate": rate, "valid_from": valid_from, "changed_by": changed_by},
-    )
 
 
-def update_tax_current_rate(tax_id, rate) -> int:
-    return _catalog().execute("UPDATE tax SET current_rate = :rate WHERE id = :id", {"id": tax_id, "rate": rate})
 
 
 def list_services() -> list[dict]:
@@ -392,34 +374,12 @@ def update_invoice_draft(invoice_id, customer_id, receiver_name, receiver_tax_id
     )
 
 
-def set_invoice_totals(invoice_id, subtotal, tax_total, total) -> int:
-    return _conn().execute(
-        "UPDATE invoice SET subtotal = :subtotal, tax_total = :tax_total, total = :total WHERE id = :id",
-        {"id": invoice_id, "subtotal": subtotal, "tax_total": tax_total, "total": total},
-    )
 
 
-def set_invoice_issued(invoice_id, folio, uuid, issued_at: datetime.datetime) -> int:
-    return _conn().execute(
-        "UPDATE invoice SET status = 'ISSUED', folio = :folio, uuid = :uuid, issued_at = :issued_at"
-        " WHERE id = :id",
-        {"id": invoice_id, "folio": folio, "uuid": uuid, "issued_at": issued_at},
-    )
 
 
-def set_invoice_cancelled(invoice_id, cancelled_at: datetime.datetime, reason: str) -> int:
-    return _conn().execute(
-        "UPDATE invoice SET status = 'CANCELLED', cancelled_at = :cancelled_at, cancellation_reason = :reason"
-        " WHERE id = :id",
-        {"id": invoice_id, "cancelled_at": cancelled_at, "reason": reason},
-    )
 
 
-def set_invoice_paid(invoice_id, paid_at: datetime.datetime) -> int:
-    return _conn().execute(
-        "UPDATE invoice SET status = 'PAID', paid_at = :paid_at WHERE id = :id",
-        {"id": invoice_id, "paid_at": paid_at},
-    )
 
 
 def delete_invoice(invoice_id: int) -> int:
@@ -446,7 +406,7 @@ def detail_taxes_for(detail_ids: list[int]) -> list[dict]:
     placeholders, params = _in_clause("d", detail_ids)
     # `tax` vive en otra base: el código sale del snapshot guardado en la propia línea.
     return _conn().all(
-        f"SELECT d.invoice_detail_id, d.tax_id, d.rate, d.amount, d.tax_code AS code"
+        f"SELECT d.invoice_detail_id, d.tax_id, d.rate, d.amount, d.tax_code AS code, d.kind"
         f" FROM invoice_detail_tax d WHERE d.invoice_detail_id IN ({placeholders}) ORDER BY d.id",
         params,
     )
@@ -481,48 +441,28 @@ def insert_detail(invoice_id, service_id, service_name, quantity, unit_price,
     )
 
 
-def insert_detail_tax(detail_id, tax_id, rate, amount, tax_code, tax_name) -> int:
+def insert_detail_tax(detail_id, tax_id, rate, amount, tax_code, tax_name, kind="TRANSFER") -> int:
     return _conn().insert(
-        "INSERT INTO invoice_detail_tax (invoice_detail_id, tax_id, tax_code, tax_name, rate, amount)"
-        " VALUES (:detail_id, :tax_id, :tax_code, :tax_name, :rate, :amount)",
+        "INSERT INTO invoice_detail_tax (invoice_detail_id, tax_id, tax_code, tax_name, kind, rate, amount)"
+        " VALUES (:detail_id, :tax_id, :tax_code, :tax_name, :kind, :rate, :amount)",
         {
             "detail_id": detail_id,
             "tax_id": tax_id,
             "tax_code": tax_code,
             "tax_name": tax_name,
+            "kind": kind,
             "rate": rate,
             "amount": amount,
         },
     )
 
 
-def update_detail_amounts(detail_id, line_subtotal, tax_amount, line_total) -> int:
-    return _conn().execute(
-        "UPDATE invoice_detail SET line_subtotal = :line_subtotal, tax_amount = :tax_amount,"
-        " line_total = :line_total WHERE id = :id",
-        {"id": detail_id, "line_subtotal": line_subtotal, "tax_amount": tax_amount, "line_total": line_total},
-    )
 
 
 def delete_detail_taxes(detail_id: int) -> None:
     _conn().execute("DELETE FROM invoice_detail_tax WHERE invoice_detail_id = :detail_id", {"detail_id": detail_id})
 
 
-def next_folio(year: int) -> int:
-    conn = _conn()
-    row = conn.one("SELECT last_number FROM folio_counter WHERE year = :year FOR UPDATE", {"year": year})
-    if row is None:
-        try:
-            conn.execute("INSERT INTO folio_counter (year, last_number) VALUES (:year, 1)", {"year": year})
-            return 1
-        except database.DuplicateKeyError:
-            row = conn.one("SELECT last_number FROM folio_counter WHERE year = :year FOR UPDATE", {"year": year})
-    current = int(row["last_number"])
-    conn.execute(
-        "UPDATE folio_counter SET last_number = :next WHERE year = :year",
-        {"year": year, "next": current + 1},
-    )
-    return current + 1
 
 
 def list_payments(invoice_id: int) -> list[dict]:
@@ -534,18 +474,115 @@ def count_payments(invoice_id: int) -> int:
     return int(row["c"]) if row else 0
 
 
-def insert_payment(invoice_id, method, amount, reference, paid_at, registered_by) -> int:
-    return _conn().insert(
-        "INSERT INTO payment (invoice_id, method, amount, reference, paid_at, registered_by)"
-        " VALUES (:invoice_id, :method, :amount, :reference, :paid_at, :registered_by)",
-        {
-            "invoice_id": invoice_id,
-            "method": method,
-            "amount": amount,
-            "reference": reference,
-            "paid_at": paid_at,
-            "registered_by": registered_by,
-        },
+
+
+# -----------------------------------------------------------------------------
+# Stored Procedures de facturación (MySQL). Los SPs manejan su propia transacción,
+# bloquean la factura (SELECT ... FOR UPDATE) y señalan reglas de negocio con SIGNAL,
+# que llega aquí como db.BusinessRuleError.
+# -----------------------------------------------------------------------------
+
+
+def calculate_invoice_totals(invoice_id: int) -> None:
+    """sp_calculate_invoice_totals: subtotal, descuento, IVA trasladado, retenciones y total."""
+    _conn().call("CALL sp_calculate_invoice_totals(:id)", {"id": invoice_id})
+
+
+def issue_invoice(invoice_id: int, user_id: int) -> dict:
+    """sp_issue_invoice: recalcula, asigna folio atómico + UUID y registra el asiento contable."""
+    rows = _conn().call("CALL sp_issue_invoice(:id, :user_id)", {"id": invoice_id, "user_id": user_id})
+    return rows[0]
+
+
+def cancel_invoice(invoice_id: int, reason: str, user_id: int) -> dict:
+    """sp_cancel_invoice: cancelación formal con reversión contable si estaba emitida."""
+    rows = _conn().call(
+        "CALL sp_cancel_invoice(:id, :reason, :user_id)", {"id": invoice_id, "reason": reason, "user_id": user_id}
+    )
+    return rows[0]
+
+
+def register_payment(invoice_id: int, method: str, amount, reference: str | None, user_id: int) -> dict:
+    """sp_register_payment: valida estado y monto, registra el pago y marca la factura PAID."""
+    rows = _conn().call(
+        "CALL sp_register_payment(:id, :method, :amount, :reference, :user_id)",
+        {"id": invoice_id, "method": method, "amount": amount, "reference": reference, "user_id": user_id},
+    )
+    return rows[0]
+
+
+def validate_payment_status(invoice_id: int | None = None) -> list[dict]:
+    """sp_validate_payment_status: inconsistencias entre invoice y payment."""
+    return _conn().call("CALL sp_validate_payment_status(:id)", {"id": invoice_id})
+
+
+def aging_report(as_of: datetime.date | None) -> list[dict]:
+    """sp_aging_report: saldo pendiente por cliente en tramos de 0-30, 31-60, 61-90 y +90 días."""
+    return _conn().call("CALL sp_aging_report(:as_of)", {"as_of": as_of})
+
+
+def run_fiscal_closing(period_type: str, day: datetime.date, user_id: int) -> dict:
+    """sp_fiscal_closing: cierre y consolidado fiscal del día o mes de `day`."""
+    rows = _conn().call(
+        "CALL sp_fiscal_closing(:period_type, :day, :user_id)",
+        {"period_type": period_type, "day": day, "user_id": user_id},
+    )
+    return rows[0]
+
+
+def list_fiscal_closings() -> list[dict]:
+    return _conn().all("SELECT * FROM fiscal_closing ORDER BY period_start DESC, period_type")
+
+
+def stamp_payload(invoice_id: int) -> str:
+    """sp_build_stamp_payload: JSON con la estructura del comprobante (CFDI 4.0)."""
+    rows = _conn().call("CALL sp_build_stamp_payload(:id)", {"id": invoice_id})
+    return rows[0]["payload"]
+
+
+def list_accounting_entries(invoice_id: int) -> list[dict]:
+    return _conn().all(
+        "SELECT * FROM accounting_entry WHERE invoice_id = :id ORDER BY id", {"id": invoice_id}
+    )
+
+
+# -----------------------------------------------------------------------------
+# Stored Procedures del catálogo (PostgreSQL). No hacen COMMIT: lo hace la vista.
+# -----------------------------------------------------------------------------
+
+
+def change_tax_rate(tax_id: int, rate: float, valid_from: datetime.date, user_id: int) -> None:
+    """sp_change_tax_rate: cierra el periodo abierto, abre el nuevo y ajusta la tasa vigente."""
+    _catalog().call(
+        "CALL sp_change_tax_rate(CAST(:tax_id AS INTEGER), CAST(:rate AS NUMERIC), CAST(:valid_from AS DATE),"
+        " CAST(:user_id AS INTEGER), NULL)",
+        {"tax_id": tax_id, "rate": rate, "valid_from": valid_from, "user_id": user_id},
+    )
+
+
+def update_service_price(service_id: int, price: float, user_id: int, reason: str | None) -> None:
+    """sp_update_service_price: cambio de tarifa auditado en service_price_history."""
+    _catalog().call(
+        "CALL sp_update_service_price(CAST(:service_id AS INTEGER), CAST(:price AS NUMERIC),"
+        " CAST(:user_id AS INTEGER), CAST(:reason AS VARCHAR), NULL)",
+        {"service_id": service_id, "price": price, "user_id": user_id, "reason": reason},
+    )
+
+
+def bulk_assign_features(service_ids: list[int], feature_ids: list[int], value: str) -> int:
+    """sp_bulk_assign_features: asigna cada característica a cada servicio (upsert)."""
+    rows = _catalog().call(
+        "CALL sp_bulk_assign_features(CAST(:service_ids AS INTEGER[]), CAST(:feature_ids AS INTEGER[]),"
+        " CAST(:value AS VARCHAR), NULL)",
+        {"service_ids": service_ids, "feature_ids": feature_ids, "value": value},
+    )
+    return int(rows[0]["p_affected"]) if rows else 0
+
+
+def service_price_history(service_id: int) -> list[dict]:
+    return _catalog().all(
+        "SELECT * FROM service_price_history WHERE service_id = :id ORDER BY changed_at DESC, id DESC",
+        {"id": service_id},
     )
 
 

@@ -30,12 +30,16 @@ export interface Customer {
   active: boolean;
 }
 
+/** TRANSFER = trasladado (IVA, IEPS): se suma. WITHHELD = retenido (ISR, IVA retenido): se resta. */
+export type TaxKind = 'TRANSFER' | 'WITHHELD';
+
 /** `currentRate` is a fraction: 0.16 = 16%. */
 export interface Tax {
   id: string;
   code: string;
   name: string;
   currentRate: number;
+  kind?: TaxKind;
 }
 
 /** Valid for `validFrom <= date < validTo` (validTo exclusive, null = open ended). */
@@ -76,6 +80,7 @@ export interface InvoiceLineTax {
   code: string;
   rate: number;
   amount: number;
+  kind?: TaxKind;
 }
 
 export interface InvoiceLine {
@@ -86,7 +91,9 @@ export interface InvoiceLine {
   unitPrice: number;
   lineSubtotal: number;
   taxes: InvoiceLineTax[];
+  /** transferred taxes only */
   taxAmount: number;
+  withholdingAmount?: number;
   lineTotal: number;
 }
 
@@ -107,7 +114,13 @@ export interface Invoice {
   receiver: Party;
   lines: InvoiceLine[];
   subtotal: number;
+  /** Discount rule applied by sp_apply_discount (fraction). */
+  discountPct?: number;
+  discountTotal?: number;
+  /** Transferred taxes (after discount). */
   taxTotal: number;
+  /** Withheld taxes (after discount). total = subtotal - discount + taxTotal - withholdingTotal */
+  withholdingTotal?: number;
   total: number;
   createdAt: string;
   issuedAt: string | null;

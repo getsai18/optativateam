@@ -39,6 +39,7 @@ def tax_json(row: dict) -> dict:
         "code": row["code"],
         "name": row["name"],
         "currentRate": _num(row["current_rate"]),
+        "kind": row.get("kind") or "TRANSFER",
     }
 
 
@@ -111,11 +112,13 @@ def invoice_json(row: dict, details: list[dict], taxes_by_detail: dict[int, list
             {
                 "taxId": encode_id("tax", tax["tax_id"]),
                 "code": tax["code"],
+                "kind": tax.get("kind") or "TRANSFER",
                 "rate": _num(tax["rate"]),
                 "amount": _num(tax["amount"]),
             }
             for tax in taxes_by_detail.get(int(detail["id"]), [])
         ]
+        withholding = round(sum(t["amount"] for t in line_taxes if t["kind"] == "WITHHELD"), 2)
         lines.append(
             {
                 "id": f"L{index + 1}",
@@ -126,6 +129,7 @@ def invoice_json(row: dict, details: list[dict], taxes_by_detail: dict[int, list
                 "lineSubtotal": _num(detail["line_subtotal"]),
                 "taxes": line_taxes,
                 "taxAmount": _num(detail["tax_amount"]),
+                "withholdingAmount": withholding,
                 "lineTotal": _num(detail["line_total"]),
             }
         )
@@ -144,7 +148,10 @@ def invoice_json(row: dict, details: list[dict], taxes_by_detail: dict[int, list
         },
         "lines": lines,
         "subtotal": _num(row["subtotal"]),
+        "discountPct": _num(row.get("discount_pct") or 0),
+        "discountTotal": _num(row.get("discount_total") or 0),
         "taxTotal": _num(row["tax_total"]),
+        "withholdingTotal": _num(row.get("withholding_total") or 0),
         "total": _num(row["total"]),
         "createdAt": iso_ms(row["created_at"]),
         "issuedAt": iso_ms(row["issued_at"]),
@@ -168,4 +175,73 @@ def payment_json(row: dict) -> dict:
         "reference": row["reference"],
         "paidAt": iso_ms(row["paid_at"]),
         "registeredBy": encode_id("usr", row["registered_by"]),
+    }
+
+
+def aging_json(row: dict) -> dict:
+    return {
+        "customerId": encode_id("cus", row["customer_id"]),
+        "customerName": row["customer_name"],
+        "taxId": row["tax_id"],
+        "openInvoices": int(row["open_invoices"]),
+        "days0To30": _num(row["days_0_30"]),
+        "days31To60": _num(row["days_31_60"]),
+        "days61To90": _num(row["days_61_90"]),
+        "daysOver90": _num(row["days_over_90"]),
+        "balance": _num(row["balance"]),
+        "oldestDays": int(row["oldest_days"] or 0),
+    }
+
+
+def fiscal_closing_json(row: dict) -> dict:
+    return {
+        "id": encode_id("fcl", row["id"]),
+        "periodType": row["period_type"],
+        "periodStart": db.date_str(row["period_start"]),
+        "periodEnd": db.date_str(row["period_end"]),
+        "invoiceCount": int(row["invoice_count"]),
+        "cancelledCount": int(row["cancelled_count"]),
+        "subtotal": _num(row["subtotal"]),
+        "discountTotal": _num(row["discount_total"]),
+        "taxTotal": _num(row["tax_total"]),
+        "withholdingTotal": _num(row["withholding_total"]),
+        "total": _num(row["total"]),
+        "collectedTotal": _num(row["collected_total"]),
+        "closedBy": encode_id("usr", row["closed_by"]) if row.get("closed_by") is not None else None,
+        "closedAt": iso_ms(row["closed_at"]),
+    }
+
+
+def payment_validation_json(row: dict) -> dict:
+    return {
+        "invoiceId": encode_id("inv", row["invoice_id"]),
+        "folio": row["folio"],
+        "status": row["status"],
+        "total": _num(row["total"]),
+        "paidAmount": _num(row["paid_amount"]),
+        "validation": row["validation"],
+    }
+
+
+def price_history_json(row: dict) -> dict:
+    return {
+        "id": encode_id("sph", row["id"]),
+        "serviceId": encode_id("svc", row["service_id"]),
+        "oldPrice": _num(row["old_price"]) if row.get("old_price") is not None else None,
+        "newPrice": _num(row["new_price"]),
+        "changePct": _num(row["change_pct"]) if row.get("change_pct") is not None else None,
+        "reason": row.get("reason"),
+        "changedBy": encode_id("usr", row["changed_by"]) if row.get("changed_by") is not None else None,
+        "changedAt": iso_ms(row["changed_at"]),
+    }
+
+
+def accounting_entry_json(row: dict) -> dict:
+    return {
+        "id": encode_id("acc", row["id"]),
+        "entryType": row["entry_type"],
+        "account": row["account"],
+        "debit": _num(row["debit"]),
+        "credit": _num(row["credit"]),
+        "createdAt": iso_ms(row["created_at"]),
     }

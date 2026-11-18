@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Ban, CreditCard, Download, Pencil, Stamp, Trash2 } from 'lucide-react';
+import { Ban, CreditCard, Download, FileJson, Pencil, Stamp, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button, ConfirmDialog, EmptyState, LinkButton, StatusBadge, PageHeader, Panel, Skeleton, toast } from '../../../shared/components/ui';
 import { useI18n } from '../../../shared/i18n';
@@ -12,7 +12,7 @@ import { CancelInvoiceDialog } from '../components/CancelInvoiceDialog';
 import { InvoiceDocument } from '../components/InvoiceDocument';
 import { InvoiceRail } from '../components/InvoiceRail';
 import { useInvoice } from '../hooks/useInvoices';
-import { cancelInvoice, deleteDraft, issueInvoice } from '../services/invoiceService';
+import { cancelInvoice, deleteDraft, downloadStampPayload, issueInvoice } from '../services/invoiceService';
 
 type Dialog = 'issue' | 'cancel' | 'delete' | 'pay' | null;
 
@@ -96,6 +96,18 @@ export function InvoiceDetailPage() {
         <LinkButton to={`/invoices/${invoice.id}/receipt`} icon={<Download size={16} aria-hidden="true" />}>
           {t('invoices.detail.download')}
         </LinkButton>
+      ) : null}
+      {status === 'ISSUED' || status === 'PAID' ? (
+        <Button
+          icon={<FileJson size={16} aria-hidden="true" />}
+          onClick={() =>
+            downloadStampPayload(invoice.id, invoice.folio).catch((err: unknown) =>
+              toast.error(err instanceof Error ? err.message : t('invoices.detail.stampError')),
+            )
+          }
+        >
+          {t('invoices.detail.stamp')}
+        </Button>
       ) : null}
       {staff && canIssueInvoice(status) ? (
         <Button variant="primary" icon={<Stamp size={16} aria-hidden="true" />} onClick={() => setDialog('issue')}>

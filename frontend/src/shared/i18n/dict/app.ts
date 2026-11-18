@@ -21,6 +21,7 @@ export const appDict: DictPair = {
     'nav.taxes': 'Impuestos',
     'nav.users': 'Usuarios',
     'nav.audit': 'Bitácora',
+    'nav.reports': 'Reportes',
     'nav.myInvoices': 'Mis facturas',
 
     'nav.main': 'Menú principal',
@@ -39,6 +40,7 @@ export const appDict: DictPair = {
     'crumb.taxes': 'Impuestos',
     'crumb.users': 'Usuarios',
     'crumb.audit': 'Bitácora',
+    'crumb.reports': 'Reportes',
     'crumb.detail': 'Detalle',
 
     'topbar.breadcrumb': 'Migas de pan',
@@ -109,6 +111,7 @@ export const appDict: DictPair = {
     'nav.taxes': 'Taxes',
     'nav.users': 'Users',
     'nav.audit': 'Audit log',
+    'nav.reports': 'Reports',
     'nav.myInvoices': 'My invoices',
 
     'nav.main': 'Main navigation',
@@ -127,6 +130,7 @@ export const appDict: DictPair = {
     'crumb.taxes': 'Taxes',
     'crumb.users': 'Users',
     'crumb.audit': 'Audit log',
+    'crumb.reports': 'Reports',
     'crumb.detail': 'Details',
 
     'topbar.breadcrumb': 'Breadcrumb',

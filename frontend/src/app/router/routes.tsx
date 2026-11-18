@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AuditPage } from '../../features/audit';
+import { ReportsPage } from '../../features/reports';
 import { LoginPage, ROLE_HOME, useAuth } from '../../features/auth';
 import { FeaturesPage, ServicesPage } from '../../features/catalog';
 import { CustomersPage } from '../../features/customers';
@@ -61,6 +62,7 @@ export function AppRoutes() {
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/invoices/new" element={<NewInvoicePage />} />
             <Route path="/invoices/:id/edit" element={<EditInvoicePage />} />
+            <Route path="/reports" element={<ReportsPage />} />
           </Route>
 
           <Route element={<RoleGuard allow={['ADMIN']} />}>

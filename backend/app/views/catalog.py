@@ -3,7 +3,7 @@ from flask import Blueprint, jsonify
 from .. import audit, auth, db, repos
 from ..domain import encode_id
 from ..errors import conflict, not_found, validation
-from ..serializers import feature_json, services_json
+from ..serializers import feature_json, price_history_json, services_json
 import math
 
 from .common import bool_field, checked_text, json_body, opt_str_field, str_field
@@ -121,6 +121,11 @@ def update_service(service_id: str):
     features = _features(body)
     if repos.service_code_taken(fields["code"], exclude_id=db_id):
         raise conflict(_SERVICE_CODE_CONFLICT)
+    if round(float(fields["base_price"]), 2) != round(db.to_number(service["base_price"]), 2):
+        # Cambio de tarifa auditado (service_price_history) vía sp_update_service_price.
+        reason = body.get("priceChangeReason")
+        reason = reason.strip()[:255] if isinstance(reason, str) and reason.strip() else None
+        repos.update_service_price(db_id, float(fields["base_price"]), auth.claims_decoded_sub(), reason)
     try:
         repos.update_service(db_id, **fields)
     except db.DuplicateKeyError:
@@ -130,6 +135,41 @@ def update_service(service_id: str):
     db.commit()
     audit.write_entry(claims, "service.update", "service", service_id)
     return jsonify(services_json([repos.find_service(db_id)])[0])
+
+
+@bp.get("/services/<service_id>/price-history")
+@auth.require_role("ADMIN", "BILLER")
+def service_price_history(service_id: str):
+    db_id = repos.decode_or_none("svc", service_id)
+    if db_id is None or repos.find_service(db_id) is None:
+        raise not_found("Service not found")
+    return jsonify([price_history_json(row) for row in repos.service_price_history(db_id)])
+
+
+@bp.post("/features/bulk-assign")
+@auth.require_role("ADMIN")
+def bulk_assign_features():
+    """Asignación masiva de características a servicios (sp_bulk_assign_features)."""
+    claims = auth.current_claims()
+    body = json_body()
+    raw_services, raw_features = body.get("serviceIds"), body.get("featureIds")
+    if not isinstance(raw_services, list) or not isinstance(raw_features, list):
+        raise validation("Invalid request body")
+    if not raw_services or not raw_features or len(raw_services) > 500 or len(raw_features) > 100:
+        raise validation("Select at least one service and one feature")
+    service_ids = [repos.decode_or_none("svc", value) for value in raw_services]
+    feature_ids = [repos.decode_or_none("feat", value) for value in raw_features]
+    if None in service_ids:
+        raise not_found("Service not found")
+    if None in feature_ids:
+        raise not_found("Feature not found")
+    value = body.get("value")
+    if not isinstance(value, str) or not value.strip() or len(value) > 100:
+        raise validation("Invalid feature value")
+    affected = repos.bulk_assign_features(service_ids, feature_ids, value.strip())
+    db.commit()
+    audit.write_entry(claims, "feature.bulk_assign", "feature", ",".join(raw_features)[:200])
+    return jsonify({"affected": affected})
 
 
 @bp.get("/features")

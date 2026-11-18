@@ -124,8 +124,14 @@ export const invoicesDict: DictPair = {
     'stats.third.staff.hint': '{amount} sin emitir',
 
     'totals.subtotal': 'Subtotal',
-    'totals.taxes': 'Impuestos',
+    'totals.taxes': 'Impuestos trasladados',
     'totals.total': 'Total',
+    'totals.discount': 'Descuento',
+    'totals.withheld': 'Retención',
+    'totals.withholdings': 'Retenciones',
+    'totals.discountNote': 'Los descuentos por cliente o volumen se aplican al guardar.',
+    'detail.stamp': 'Comprobante (JSON)',
+    'detail.stampError': 'No se pudo generar el comprobante',
 
     'wizard.step.customer': 'Cliente',
     'wizard.step.services': 'Servicios',
@@ -321,8 +327,14 @@ export const invoicesDict: DictPair = {
     'stats.third.staff.hint': '{amount} not issued yet',
 
     'totals.subtotal': 'Subtotal',
-    'totals.taxes': 'Taxes',
+    'totals.taxes': 'Transferred taxes',
     'totals.total': 'Total',
+    'totals.discount': 'Discount',
+    'totals.withheld': 'Withheld',
+    'totals.withholdings': 'Withholdings',
+    'totals.discountNote': 'Customer and volume discounts are applied when saving.',
+    'detail.stamp': 'Stamp payload (JSON)',
+    'detail.stampError': 'The stamp payload could not be generated',
 
     'wizard.step.customer': 'Customer',
     'wizard.step.services': 'Services',

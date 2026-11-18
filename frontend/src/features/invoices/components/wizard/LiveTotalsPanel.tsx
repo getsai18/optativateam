@@ -13,7 +13,7 @@ export function LiveTotalsPanel({ view }: { view: BuilderView }) {
   const breakdown = totals.breakdown.map((b) => ({
     key: b.taxId,
     label: `${view.taxNames.get(b.taxId) ?? b.code} ${formatPercent(b.rate)}`,
-    amount: b.amount,
+    amount: b.kind === 'WITHHELD' ? -b.amount : b.amount,
   }));
   const itemCount = lines.reduce((n, l) => n + l.quantity, 0);
 
@@ -51,7 +51,7 @@ export function LiveTotalsPanel({ view }: { view: BuilderView }) {
             <li>{t('invoices.summary.willIssue.lock')}</li>
           </ul>
         </div>
-        <TotalsBlock subtotal={totals.subtotal} taxTotal={totals.taxTotal} total={totals.total} breakdown={breakdown} />
+        <TotalsBlock subtotal={totals.subtotal} taxTotal={totals.taxTotal} withholdingTotal={totals.withholdingTotal} total={totals.total} breakdown={breakdown} discountNote />
         <p className="text-sm text-muted">{t('invoices.summary.taxesNote')}</p>
       </div>
     </Panel>

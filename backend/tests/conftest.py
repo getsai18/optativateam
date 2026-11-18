@@ -6,6 +6,8 @@ from app import audit, auth, create_app
 from app import repos
 from app.domain import utcnow
 
+from . import fake_procedures
+
 
 @pytest.fixture()
 def app():
@@ -67,6 +69,10 @@ class FakeStore:
         self.detail_taxes: dict[int, dict] = {}
         self.payments: dict[int, dict] = {}
         self.folios: dict[int, int] = {}
+        self.discounts: dict[int, float] = {}  # customer_id -> pct (emula discount_rule)
+        self.price_history: list[dict] = []
+        self.closings: dict[tuple, dict] = {}
+        self.ledger: list[dict] = []
         self.seq = {
             "usr": 1,
             "cus": 1,
@@ -535,7 +541,7 @@ class FakeStore:
             }
             return detail_id
 
-        def insert_detail_tax(detail_id, tax_id, rate, amount, tax_code, tax_name):
+        def insert_detail_tax(detail_id, tax_id, rate, amount, tax_code, tax_name, kind="TRANSFER"):
             entry_id = store._next("dtax")
             store.detail_taxes[entry_id] = {
                 "id": entry_id,
@@ -543,6 +549,7 @@ class FakeStore:
                 "tax_id": tax_id,
                 "tax_code": tax_code,
                 "tax_name": tax_name,
+                "kind": kind,
                 "rate": rate,
                 "amount": amount,
             }
@@ -623,10 +630,6 @@ class FakeStore:
             "find_tax": find_tax,
             "list_tax_history": list_tax_history,
             "tax_history_for": tax_history_for,
-            "open_tax_period": open_tax_period,
-            "close_tax_period": close_tax_period,
-            "insert_tax_history": insert_tax_history,
-            "update_tax_current_rate": update_tax_current_rate,
             "list_services": list_services,
             "find_service": find_service,
             "service_code_taken": service_code_taken,
@@ -650,26 +653,20 @@ class FakeStore:
             "find_invoice_for_update": find_invoice,
             "insert_invoice": insert_invoice,
             "update_invoice_draft": update_invoice_draft,
-            "set_invoice_totals": set_invoice_totals,
-            "set_invoice_issued": set_invoice_issued,
-            "set_invoice_cancelled": set_invoice_cancelled,
-            "set_invoice_paid": set_invoice_paid,
             "delete_invoice": delete_invoice,
             "details_for": details_for,
             "detail_taxes_for": detail_taxes_for,
             "delete_details": delete_details,
             "insert_detail": insert_detail,
             "insert_detail_tax": insert_detail_tax,
-            "update_detail_amounts": update_detail_amounts,
             "delete_detail_taxes": delete_detail_taxes,
-            "next_folio": next_folio,
             "list_payments": list_payments,
             "count_payments": count_payments,
-            "insert_payment": insert_payment,
             "fetch_labels": fetch_labels,
         }
         for name, function in mapping.items():
             monkeypatch.setattr(repos, name, function)
+        fake_procedures.install(store, monkeypatch)
 
 
 @pytest.fixture()

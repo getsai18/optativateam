@@ -17,6 +17,28 @@ class DuplicateKeyError(Exception):
     pass
 
 
+class BusinessRuleError(Exception):
+    """Regla de negocio rechazada por un Stored Procedure.
+
+    MySQL: SIGNAL SQLSTATE '45000' (errno 1644). PostgreSQL: RAISE EXCEPTION (SQLSTATE P0001).
+    `message` es el texto del SP, pensado para mostrarse al usuario.
+    """
+
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.message = message
+
+
+def _business_rule_message(exc: Exception) -> str | None:
+    args = getattr(exc, "args", ())
+    if len(args) >= 2 and args[0] == 1644:  # PyMySQL: (1644, 'mensaje')
+        return str(args[1])
+    if getattr(exc, "sqlstate", None) == "P0001":  # psycopg RaiseException
+        diag = getattr(exc, "diag", None)
+        return getattr(diag, "message_primary", None) or str(exc).splitlines()[0]
+    return None
+
+
 def _filter_params(sql: str, params: dict | None) -> dict:
     if not params:
         return {}
@@ -50,6 +72,9 @@ class Connection:
             cursor.close()
             if _is_duplicate(exc):
                 raise DuplicateKeyError(str(exc)) from exc
+            message = _business_rule_message(exc)
+            if message is not None:
+                raise BusinessRuleError(message) from exc
             raise
         return cursor
 
@@ -74,6 +99,25 @@ class Connection:
         if not row:
             return None
         return next(iter(row.values()))
+
+    def call(self, sql: str, params: dict | None = None) -> list[dict]:
+        """Ejecuta un Stored Procedure (CALL ...) y devuelve su primer conjunto de resultados.
+
+        En MySQL descarta los conjuntos extra que agrega CALL. Los errores de negocio del SP
+        llegan como BusinessRuleError.
+        """
+        cursor = self._run(sql, params)
+        try:
+            description = cursor.description
+            rows = cursor.fetchall() if description is not None else []
+            while self.engine == "mysql" and cursor.nextset():
+                pass
+        finally:
+            cursor.close()
+        if description is None:
+            return []
+        columns = [col[0].lower() for col in description]
+        return [dict(zip(columns, row)) for row in rows]
 
     def execute(self, sql: str, params: dict | None = None) -> int:
         cursor = self._run(sql, params)

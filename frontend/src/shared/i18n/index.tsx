@@ -9,6 +9,7 @@ import { customersDict } from './dict/customers';
 import { dashboardDict } from './dict/dashboard';
 import { invoicesDict } from './dict/invoices';
 import { paymentsDict } from './dict/payments';
+import { reportsDict } from './dict/reports';
 import { taxesDict } from './dict/taxes';
 import { usersDict } from './dict/users';
 
@@ -27,6 +28,7 @@ const NAMESPACE: Record<string, DictPair> = {
   taxes: taxesDict,
   dashboard: dashboardDict,
   audit: auditDict,
+  reports: reportsDict,
 };
 
 const STORAGE_KEY = 'nw.lang';

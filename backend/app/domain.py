@@ -98,6 +98,11 @@ def rate_on_date(tax: dict, history: list[dict], as_of) -> float:
 
 
 def calculate_totals(lines: list[dict], taxes: dict, history: dict, as_of) -> dict:
+    """Vista previa de totales por línea (misma regla que sp_calculate_invoice_totals).
+
+    Impuestos TRANSFER (IVA, IEPS) se suman; WITHHELD (ISR, IVA retenido) se restan.
+    El descuento por cliente o volumen lo aplica el SP al guardar, no este cálculo.
+    """
     breakdown: dict[str, dict] = {}
     computed = []
     for index, item in enumerate(lines):
@@ -109,16 +114,25 @@ def calculate_totals(lines: list[dict], taxes: dict, history: dict, as_of) -> di
                 continue
             rate = rate_on_date(tax, history.get(tax_id, []), as_of)
             amount = round2(line_subtotal * rate)
+            kind = tax.get("kind") or "TRANSFER"
             entry = breakdown.get(tax_id)
             if entry is None:
-                entry = {"tax_id": tax_id, "code": tax["code"], "rate": rate, "base": 0.0, "amount": 0.0}
+                entry = {"tax_id": tax_id, "code": tax["code"], "rate": rate, "kind": kind, "base": 0.0, "amount": 0.0}
                 breakdown[tax_id] = entry
             entry["base"] = round2(entry["base"] + line_subtotal)
             entry["amount"] = round2(entry["amount"] + amount)
             line_taxes.append(
-                {"tax_id": tax_id, "code": tax["code"], "name": tax.get("name", tax["code"]), "rate": rate, "amount": amount}
+                {
+                    "tax_id": tax_id,
+                    "code": tax["code"],
+                    "name": tax.get("name", tax["code"]),
+                    "kind": kind,
+                    "rate": rate,
+                    "amount": amount,
+                }
             )
-        tax_amount = round2(sum(t["amount"] for t in line_taxes))
+        tax_amount = round2(sum(t["amount"] for t in line_taxes if t["kind"] != "WITHHELD"))
+        withholding_amount = round2(sum(t["amount"] for t in line_taxes if t["kind"] == "WITHHELD"))
         computed.append(
             {
                 "id": f"L{index + 1}",
@@ -129,14 +143,17 @@ def calculate_totals(lines: list[dict], taxes: dict, history: dict, as_of) -> di
                 "line_subtotal": line_subtotal,
                 "taxes": line_taxes,
                 "tax_amount": tax_amount,
-                "line_total": round2(line_subtotal + tax_amount),
+                "withholding_amount": withholding_amount,
+                "line_total": round2(line_subtotal + tax_amount - withholding_amount),
             }
         )
     subtotal = round2(sum(line["line_subtotal"] for line in computed))
     tax_total = round2(sum(line["tax_amount"] for line in computed))
+    withholding_total = round2(sum(line["withholding_amount"] for line in computed))
     return {
         "lines": computed,
         "subtotal": subtotal,
         "tax_total": tax_total,
-        "total": round2(subtotal + tax_total),
+        "withholding_total": withholding_total,
+        "total": round2(subtotal + tax_total - withholding_total),
     }

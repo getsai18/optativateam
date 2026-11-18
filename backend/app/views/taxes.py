@@ -52,23 +52,11 @@ def change_tax_rate(tax_id: str):
         raise validation("Invalid request body")
     if valid_from < today:
         raise validation("The new rate cannot start in the past")
-    open_period = repos.open_tax_period(db_id)
-    if open_period is not None:
-        open_day = db.date_str(open_period["valid_from"])
-        if valid_from <= open_day:
-            raise validation(f"The new rate must start after {open_day}")
-        repos.close_tax_period(db_id, datetime.date.fromisoformat(valid_from))
-    user_id = auth.claims_decoded_sub()
-    repos.insert_tax_history(db_id, float(rate), datetime.date.fromisoformat(valid_from), user_id)
-    covering = None
-    for entry in repos.tax_history_for(db_id):
-        valid_from_day = db.date_str(entry["valid_from"])
-        valid_to_day = db.date_str(entry["valid_to"])
-        if valid_from_day <= today and (valid_to_day is None or today < valid_to_day):
-            covering = entry
-            break
-    if covering is not None:
-        repos.update_tax_current_rate(db_id, db.to_number(covering["rate"]))
+    # sp_change_tax_rate valida el periodo abierto, cierra/abre la vigencia y ajusta la tasa actual.
+    try:
+        repos.change_tax_rate(db_id, float(rate), datetime.date.fromisoformat(valid_from), auth.claims_decoded_sub())
+    except db.BusinessRuleError as exc:
+        raise validation(exc.message)
     db.commit()
     audit.write_entry(claims, "tax.rate_change", "tax", tax_id)
     return jsonify(tax_json(repos.find_tax(db_id)))

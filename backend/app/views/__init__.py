@@ -5,6 +5,7 @@ from .customers import bp as customers_bp
 from .dashboard import bp as dashboard_bp
 from .invoices import bp as invoices_bp
 from .payments import bp as payments_bp
+from .reports import bp as reports_bp
 from .taxes import bp as taxs_bp
 from .users import bp as users_bp
 
@@ -16,6 +17,7 @@ ALL_BLUEPRINTS = (
     taxs_bp,
     invoices_bp,
     payments_bp,
+    reports_bp,
     dashboard_bp,
     audit_bp,
 )

@@ -9,7 +9,6 @@ from ..domain import (
     calculate_totals,
     decode_id,
     encode_id,
-    new_uuid,
     utcnow,
 )
 from ..errors import conflict, not_found, validation
@@ -80,7 +79,13 @@ def _insert_details(invoice_id: int, totals: dict) -> None:
         )
         for tax in line["taxes"]:
             repos.insert_detail_tax(
-                detail_id, decode_id("tax", tax["tax_id"]), tax["rate"], tax["amount"], tax["code"], tax["name"]
+                detail_id,
+                decode_id("tax", tax["tax_id"]),
+                tax["rate"],
+                tax["amount"],
+                tax["code"],
+                tax["name"],
+                tax["kind"],
             )
 
 
@@ -103,6 +108,7 @@ def _persist_draft(body: dict) -> tuple[int, str]:
         )
         repos.delete_details(invoice_id)
         _insert_details(invoice_id, totals)
+        repos.calculate_invoice_totals(invoice_id)
         return invoice_id, "invoice.update"
     issuer = issuer_row()
     invoice_id = repos.insert_invoice(
@@ -118,15 +124,16 @@ def _persist_draft(body: dict) -> tuple[int, str]:
         utcnow(),
     )
     _insert_details(invoice_id, totals)
+    repos.calculate_invoice_totals(invoice_id)
     return invoice_id, "invoice.create"
 
 
-def _stamp(invoice_id: int) -> None:
-    invoice = repos.find_invoice_for_update(invoice_id)
-    if invoice is None:
-        raise not_found("Invoice not found")
-    if not can_issue_invoice(invoice["status"]):
-        raise conflict("Only draft invoices can be issued")
+def _refresh_line_taxes(invoice_id: int) -> None:
+    """Vuelve a copiar en cada línea los impuestos vigentes del catálogo (PostgreSQL).
+
+    El catálogo vive en otro motor, así que la copia la hace la aplicación; los importes,
+    el descuento, las retenciones, el folio y el asiento los calcula sp_issue_invoice.
+    """
     now = utcnow()
     details = repos.details_for([invoice_id])
     stored_taxes: dict[int, list[int]] = {}
@@ -136,8 +143,7 @@ def _stamp(invoice_id: int) -> None:
     lines_input = []
     for detail in details:
         service_id = int(detail["service_id"])
-        service = repos.find_service(service_id)
-        if service is not None:
+        if repos.find_service(service_id) is not None:
             tax_ids = [encode_id("tax", tax_id) for tax_id in repos.list_service_tax_ids(service_id)]
         else:
             tax_ids = [encode_id("tax", tax_id) for tax_id in stored_taxes.get(int(detail["id"]), [])]
@@ -153,16 +159,27 @@ def _stamp(invoice_id: int) -> None:
     totals = calculate_totals(lines_input, taxes, history, now)
     for detail, line in zip(details, totals["lines"]):
         detail_id = int(detail["id"])
-        repos.update_detail_amounts(detail_id, line["line_subtotal"], line["tax_amount"], line["line_total"])
         repos.delete_detail_taxes(detail_id)
         for tax in line["taxes"]:
             repos.insert_detail_tax(
-                detail_id, decode_id("tax", tax["tax_id"]), tax["rate"], tax["amount"], tax["code"], tax["name"]
+                detail_id,
+                decode_id("tax", tax["tax_id"]),
+                tax["rate"],
+                tax["amount"],
+                tax["code"],
+                tax["name"],
+                tax["kind"],
             )
-    repos.set_invoice_totals(invoice_id, totals["subtotal"], totals["tax_total"], totals["total"])
-    year = now.year
-    folio_number = repos.next_folio(year)
-    repos.set_invoice_issued(invoice_id, f"INV-{year}-{folio_number:04d}", new_uuid(), now)
+
+
+def _stamp(invoice_id: int) -> None:
+    invoice = repos.find_invoice_for_update(invoice_id)
+    if invoice is None:
+        raise not_found("Invoice not found")
+    if not can_issue_invoice(invoice["status"]):
+        raise conflict("Only draft invoices can be issued")
+    _refresh_line_taxes(invoice_id)
+    repos.issue_invoice(invoice_id, auth.claims_decoded_sub())
 
 
 @bp.get("/invoices")
@@ -233,7 +250,7 @@ def cancel_invoice(invoice_id: str):
     db_id, invoice = _load_invoice(invoice_id, lock=True)
     if not can_cancel_invoice(invoice["status"]):
         raise conflict("Paid or already cancelled invoices cannot be cancelled")
-    repos.set_invoice_cancelled(db_id, utcnow(), reason.strip())
+    repos.cancel_invoice(db_id, reason.strip(), auth.claims_decoded_sub())
     db.commit()
     audit.write_entry(g.claims, "invoice.cancel", "invoice", encode_id("inv", db_id))
     return jsonify(invoices_json([repos.find_invoice(db_id)], issuer_row())[0])

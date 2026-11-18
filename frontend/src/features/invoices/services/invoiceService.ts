@@ -35,6 +35,18 @@ export async function cancelInvoice(id: string, reason: string): Promise<Invoice
   return api<Invoice>(`/invoices/${encodeURIComponent(id)}/cancel`, { method: 'POST', body: { reason: reason.trim() } });
 }
 
+/** Estructura del comprobante para timbrado (sp_build_stamp_payload), descargada como archivo JSON. */
+export async function downloadStampPayload(id: string, folio: string | null): Promise<void> {
+  const payload = await api<unknown>(`/invoices/${encodeURIComponent(id)}/stamp`);
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${folio ?? id}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export async function deleteDraft(id: string): Promise<void> {
   await api<unknown>(`/invoices/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }

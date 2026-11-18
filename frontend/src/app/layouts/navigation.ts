@@ -3,6 +3,7 @@ import {
   FileText,
   LayoutDashboard,
   ListChecks,
+  BarChart3,
   Package,
   Percent,
   ScrollText,
@@ -30,11 +31,12 @@ export interface NavSection {
 const DASHBOARD: NavItem = { to: '/dashboard', label: 'nav.dashboard', icon: LayoutDashboard };
 const INVOICES: NavItem = { to: '/invoices', label: 'nav.invoices', icon: FileText, end: true };
 const NEW_INVOICE: NavItem = { to: '/invoices/new', label: 'nav.newInvoice', icon: FilePlus2 };
+const REPORTS: NavItem = { to: '/reports', label: 'nav.reports', icon: BarChart3 };
 
 export const NAVIGATION: Record<Role, NavSection[]> = {
   ADMIN: [
     { title: 'nav.section.overview', items: [DASHBOARD] },
-    { title: 'nav.section.billing', items: [INVOICES, NEW_INVOICE] },
+    { title: 'nav.section.billing', items: [INVOICES, NEW_INVOICE, REPORTS] },
     {
       title: 'nav.section.catalogPeople',
       items: [
@@ -54,7 +56,7 @@ export const NAVIGATION: Record<Role, NavSection[]> = {
   ],
   BILLER: [
     { title: 'nav.section.overview', items: [DASHBOARD] },
-    { title: 'nav.section.billing', items: [INVOICES, NEW_INVOICE] },
+    { title: 'nav.section.billing', items: [INVOICES, NEW_INVOICE, REPORTS] },
     {
       title: 'nav.section.directory',
       items: [
@@ -79,6 +81,7 @@ const SEGMENT_KEYS: Record<string, string> = {
   taxes: 'crumb.taxes',
   users: 'crumb.users',
   audit: 'crumb.audit',
+  reports: 'crumb.reports',
 };
 
 export interface Crumb {

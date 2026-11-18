@@ -6,7 +6,7 @@ from tests.conftest import auth_headers
 def test_list_taxes_and_history(client, app, store):
     headers = auth_headers(app, role="CUSTOMER", customer_id="cus_1")
     taxes = client.get("/taxes", headers=headers).get_json()
-    assert taxes == [{"id": "tax_1", "code": "VAT16", "name": "VAT", "currentRate": 0.16}]
+    assert taxes == [{"id": "tax_1", "code": "VAT16", "name": "VAT", "currentRate": 0.16, "kind": "TRANSFER"}]
     history = client.get("/taxes/history", headers=headers).get_json()
     assert history[0]["taxId"] == "tax_1"
     assert history[0]["validTo"] is None

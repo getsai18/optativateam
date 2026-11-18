@@ -29,7 +29,7 @@ def test_create_draft_with_totals(client, app, store):
     assert line["serviceId"] == "svc_1"
     assert line["quantity"] == 2
     assert line["unitPrice"] == 4500.0
-    assert line["taxes"][0] == {"taxId": "tax_1", "code": "VAT16", "rate": 0.16, "amount": 1440.0}
+    assert line["taxes"][0] == {"taxId": "tax_1", "code": "VAT16", "kind": "TRANSFER", "rate": 0.16, "amount": 1440.0}
     assert audit._memory[-1]["action"] == "invoice.create"
     assert audit._memory[-1]["entityId"] == invoice["id"]
 

@@ -93,3 +93,21 @@ describe('calculateTotals', () => {
     expect(r.breakdown).toEqual([]);
   });
 });
+
+describe('withheld taxes', () => {
+  const ISR: Tax = { id: 'ret_isr', code: 'RET_ISR', name: 'ISR retenido', currentRate: 0.1, kind: 'WITHHELD' };
+
+  it('subtracts withholdings from the total and keeps them out of taxTotal', () => {
+    const result = calculateTotals(
+      [{ serviceId: 's1', serviceName: 'Consulting', quantity: 1, unitPrice: 1000, taxIds: ['vat16', 'ret_isr'] }],
+      [VAT, ISR],
+      history,
+      '2026-05-01',
+    );
+    expect(result.taxTotal).toBe(160);
+    expect(result.withholdingTotal).toBe(100);
+    expect(result.total).toBe(1060);
+    expect(result.lines[0]?.lineTotal).toBe(1060);
+    expect(result.breakdown.find((b) => b.taxId === 'ret_isr')?.kind).toBe('WITHHELD');
+  });
+});

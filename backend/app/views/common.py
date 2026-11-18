@@ -91,6 +91,7 @@ def tax_universe() -> tuple[dict, dict]:
             "code": row["code"],
             "name": row["name"],
             "current_rate": db.to_number(row["current_rate"]),
+            "kind": row.get("kind") or "TRANSFER",
         }
     history: dict[str, list[dict]] = {}
     for row in repos.list_tax_history():

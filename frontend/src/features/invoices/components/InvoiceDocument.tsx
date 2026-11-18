@@ -27,7 +27,7 @@ interface InvoiceDocumentProps {
 export function InvoiceDocument({ invoice, payments, taxes }: InvoiceDocumentProps) {
   const { t } = useI18n();
   const taxNames = new Map(taxes.map((tx) => [tx.id, tx.name]));
-  const breakdown = breakdownFromLines(invoice.lines, taxes);
+  const breakdown = breakdownFromLines(invoice.lines, taxes, invoice.discountPct ?? 0);
 
   return (
     <article className="overflow-hidden rounded-panel border border-line/70 bg-surface p-8 shadow-card print:rounded-none print:border-0 print:p-0 print:shadow-none" aria-label={t('invoices.document.aria')}>
@@ -109,7 +109,7 @@ export function InvoiceDocument({ invoice, payments, taxes }: InvoiceDocumentPro
           </table>
         </div>
         <div className="mt-6 flex justify-end">
-          <TotalsBlock className="w-full max-w-xs rounded-panel bg-paper p-5" subtotal={invoice.subtotal} taxTotal={invoice.taxTotal} total={invoice.total} breakdown={breakdown} />
+          <TotalsBlock className="w-full max-w-xs rounded-panel bg-paper p-5" subtotal={invoice.subtotal} discountPct={invoice.discountPct} discountTotal={invoice.discountTotal} taxTotal={invoice.taxTotal} withholdingTotal={invoice.withholdingTotal} total={invoice.total} breakdown={breakdown} />
         </div>
       </section>
 
