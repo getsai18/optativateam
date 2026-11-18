@@ -1,0 +1,21 @@
+# Secretos
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# Node / frontend
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Artefactos de despliegue
+.build/
+*.zip
+packaged.yaml
+.aws-sam/
