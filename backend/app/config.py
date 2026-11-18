@@ -85,7 +85,9 @@ def build_config(overrides: dict | None = None) -> dict:
         "AUDIT_BACKEND": os.getenv("AUDIT_BACKEND", "memory").strip().lower(),
         "AUDIT_TABLE": os.getenv("AUDIT_TABLE", "billing_audit_log"),
         "AUDIT_REQUIRED": _bool("AUDIT_REQUIRED"),
-        "CORS_ORIGINS": os.getenv("CORS_ORIGINS", "*"),
+        # Solo desarrollo local por defecto. En producción configurar CORS_ORIGINS con el
+        # dominio real del frontend (infra/template.yaml ya lo inyecta en AWS).
+        "CORS_ORIGINS": os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"),
         "MAX_CONTENT_LENGTH": 256 * 1024,  # cuerpos JSON > 256 KB -> 413
         "TESTING": False,
     }

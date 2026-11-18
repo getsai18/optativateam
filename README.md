@@ -3,13 +3,13 @@
 **Asignatura:** Optativa I – Bases de Datos en la Nube · **Profesor:** Aldo Romero Arroyo ·
 **Entorno:** AWS Academy Learner Lab
 
-Sistema web de facturación: catálogo de 105 servicios y 50 características, clientes, facturas con
+Sistema web de facturación: catálogo de 104 servicios y 50 características, clientes, facturas con
 descuentos, IVA y retenciones, pagos, cancelación con reversión contable, cierres fiscales y reportes.
 La lógica transaccional está en **14 Stored Procedures/funciones** sobre RDS, invocados desde la API.
 
 ```
 API Gateway proxy HTTPS → S3 (React) · API Gateway HTTP API → Lambda authorizer (JWT)
-                                 → Lambda billing-api (Flask) → RDS MySQL 8.4 (facturación, 11 tablas, 10 SPs)
+                                 → Lambda billing-api (Flask) → RDS MySQL 8.4 (facturación, 12 tablas, 10 SPs)
                                                              → RDS PostgreSQL 18 (catálogo, 7 tablas, 4 SPs)
                                                              → DynamoDB (auditoría)
                                  → Lambda billing-cart → DynamoDB (carrito)
@@ -56,12 +56,18 @@ python database/seed/seed_invoices.py
 python infra/deploy.py --profile learnerlab
 ```
 
+`--seed` solo carga catálogo y clientes (DML versionado). Las **facturas no son DML versionado**:
+no hay un `04_seed_invoices.sql`; el historial se genera en ejecución con
+`python database/seed/seed_invoices.py` (por omisión, ~150 facturas en 6 meses) invocando los Stored
+Procedures. Para una base ya existente, la normalización de roles se aplica con
+`mysql/05_roles_migration.sql` (incluida en `apply.py`).
+
 Usuarios de prueba: `admin@northwind.test` y `biller@northwind.test`, contraseña `demo1234`.
 
 ## Pruebas locales
 
 ```bash
-cd backend  && pip install -r requirements-dev.txt && python -m pytest -q    # 126 pruebas
+cd backend  && pip install -r requirements-dev.txt && python -m pytest -q    # 140 pruebas (133 + 7 de integración)
 cd frontend && npm ci && npm test && npm run build
 ```
 

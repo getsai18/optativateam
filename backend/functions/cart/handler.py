@@ -12,7 +12,7 @@ Rutas (detrás del Lambda authorizer; el usuario sale del contexto del authorize
 Variables de entorno:
   CART_TABLE      default billing_invoice_cart
   CART_TTL_DAYS   default 7
-  CORS_ORIGIN     default *   (pon el dominio del frontend en producción)
+  CORS_ORIGIN     default http://localhost:5173  (pon el dominio real del frontend en producción)
 """
 
 import json
@@ -23,7 +23,8 @@ import boto3
 
 TABLE_NAME = os.environ.get("CART_TABLE", "billing_invoice_cart")
 TTL_DAYS = int(os.environ.get("CART_TTL_DAYS", "7"))
-CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "*")
+# Desarrollo local por defecto; en producción se configura el dominio real del frontend.
+CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "http://localhost:5173")
 MAX_LINES = 200
 
 _table = None

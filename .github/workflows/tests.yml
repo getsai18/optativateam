@@ -1,0 +1,115 @@
+name: tests
+
+on:
+  push:
+    branches: [main, mejoras-auditoria]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    env:
+      # Mismos nombres que database/apply.py y backend/.env.example
+      BILLING_DB_ENGINE: mysql
+      BILLING_DB_HOST: 127.0.0.1
+      BILLING_DB_PORT: '3306'
+      BILLING_DB_NAME: Facturacion_Mysql
+      BILLING_DB_USER: billing
+      BILLING_DB_PASSWORD: billing
+      CATALOG_DB_ENGINE: postgres
+      CATALOG_DB_HOST: 127.0.0.1
+      CATALOG_DB_PORT: '5432'
+      CATALOG_DB_NAME: catalog_db
+      CATALOG_DB_USER: catalog
+      CATALOG_DB_PASSWORD: catalog
+      JWT_SECRET: ci-only-secret-0123456789-0123456789-abcdef
+      ALLOW_DEMO_LOGIN: 'false'
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      # Activa backend/tests/test_sp_integration.py contra estos servicios locales.
+      RUN_DB_INTEGRATION: '1'
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: Facturacion_Mysql
+          MYSQL_USER: billing
+          MYSQL_PASSWORD: billing
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: catalog_db
+          POSTGRES_USER: catalog
+          POSTGRES_PASSWORD: catalog
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U catalog -d catalog_db"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Instalar dependencias del backend
+        run: pip install -r backend/requirements-dev.txt
+      - name: Crear backend/.env para database/apply.py
+        # apply.py lee backend/.env (no variables de entorno); se genera aquí, nunca se commitea.
+        run: |
+          {
+            echo "BILLING_DB_ENGINE=$BILLING_DB_ENGINE"
+            echo "BILLING_DB_HOST=$BILLING_DB_HOST"
+            echo "BILLING_DB_PORT=$BILLING_DB_PORT"
+            echo "BILLING_DB_NAME=$BILLING_DB_NAME"
+            echo "BILLING_DB_USER=$BILLING_DB_USER"
+            echo "BILLING_DB_PASSWORD=$BILLING_DB_PASSWORD"
+            echo "CATALOG_DB_ENGINE=$CATALOG_DB_ENGINE"
+            echo "CATALOG_DB_HOST=$CATALOG_DB_HOST"
+            echo "CATALOG_DB_PORT=$CATALOG_DB_PORT"
+            echo "CATALOG_DB_NAME=$CATALOG_DB_NAME"
+            echo "CATALOG_DB_USER=$CATALOG_DB_USER"
+            echo "CATALOG_DB_PASSWORD=$CATALOG_DB_PASSWORD"
+            echo "JWT_SECRET=$JWT_SECRET"
+            echo "ALLOW_DEMO_LOGIN=$ALLOW_DEMO_LOGIN"
+            echo "CORS_ORIGINS=$CORS_ORIGINS"
+          } > backend/.env
+      - name: Habilitar triggers y funciones en MySQL de CI
+        # El contenedor mysql:8.4 trae binary logging; sin esta variable MySQL exige
+        # privilegio SUPER para crear triggers/procedimientos y el usuario 'billing' no lo tiene.
+        run: |
+          python -c "import pymysql; c=pymysql.connect(host='127.0.0.1', port=3306, user='root', password='root'); c.cursor().execute('SET GLOBAL log_bin_trust_function_creators = 1'); c.commit(); c.close()"
+      - name: Aplicar esquema y stored procedures de MySQL
+        # --fresh recrea las tablas (pide confirmación); el servicio está vacío.
+        # Postgres se carga desde test_sp_integration.py: apply.py exige sslmode=require
+        # y el servicio local de CI no ofrece TLS.
+        run: printf 'si\n' | python database/apply.py --fresh --only mysql
+      - name: Pruebas del backend
+        run: cd backend && python -m pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build

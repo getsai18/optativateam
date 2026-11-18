@@ -29,7 +29,7 @@ flowchart LR
     end
 
     subgraph DATA["Cuenta de datos"]
-        MYSQL[("RDS MySQL 8.4<br/>facturación<br/>11 tablas + 10 SPs")]
+        MYSQL[("RDS MySQL 8.4<br/>facturación<br/>12 tablas + 10 SPs")]
         PG[("RDS PostgreSQL 18<br/>catálogo<br/>7 tablas + 4 SPs + trigger")]
     end
 

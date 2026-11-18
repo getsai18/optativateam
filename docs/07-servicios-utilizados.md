@@ -19,7 +19,7 @@ se reparte en **dos cuentas** de Learner Lab: una de datos (RDS) y una de aplica
 | **CloudWatch Logs** | Aplicación | Logs de las 4 Lambdas | Retención de 7 días |
 | **CloudFormation (SAM)** | Aplicación | Infraestructura como código (`infra/template.yaml`) | Stack `billing-<stage>`; sin creación de roles IAM |
 | **IAM** | Aplicación | Rol de ejecución de las Lambdas | `LabRole` preconfigurado |
-| **RDS MySQL 8.4** | Datos | Base transaccional de facturación (11 tablas, 10 SPs) | `db.t4g.micro`, 20 GB gp2, TLS obligatorio |
+| **RDS MySQL 8.4** | Datos | Base transaccional de facturación (12 tablas, 10 SPs) | `db.t4g.micro`, 20 GB gp2, TLS obligatorio |
 | **RDS PostgreSQL 18** | Datos | Catálogo de servicios, características e impuestos (7 tablas, 4 SPs + trigger) | `db.t4g.micro`, 20 GB gp2, TLS obligatorio |
 
 ## 7.2 Servicios descartados
@@ -39,7 +39,7 @@ se reparte en **dos cuentas** de Learner Lab: una de datos (RDS) y una de aplica
 | Backend | Python 3.12, Flask, `apig-wsgi` (Lambda) |
 | Autenticación | JWT (PyJWT, HS256) y bcrypt |
 | Acceso a datos | PyMySQL, psycopg 3, boto3 |
-| Pruebas | pytest (126 pruebas de backend), Vitest (frontend) |
+| Pruebas | pytest (140 pruebas de backend: 133 locales + 7 de integración en CI), Vitest (frontend) |
 | Despliegue | CloudFormation/SAM con `infra/deploy.py`; scripts SQL con `database/apply.py` |
 
 ## 7.4 Cumplimiento de las restricciones del Learner Lab

@@ -93,6 +93,38 @@ def test_save_and_issue_single_call(client, app, store):
     assert actions == ["invoice.create", "invoice.issue"]
 
 
+def test_save_and_issue_failure_keeps_committed_draft(client, app, store, monkeypatch):
+    """Si la emisión falla, el borrador ya quedó confirmado y el cliente recibe un 409."""
+    from app import db, repos
+    from app.db import BusinessRuleError
+
+    events = []
+    real_commit = db.commit
+
+    def spy_commit():
+        events.append("commit")
+        return real_commit()
+
+    def failing_issue(*_args, **_kwargs):
+        events.append("issue")
+        raise BusinessRuleError("Folio segment exhausted")
+
+    monkeypatch.setattr(db, "commit", spy_commit)
+    monkeypatch.setattr(repos, "issue_invoice", failing_issue)
+
+    response = client.post("/invoices?issue=true", json=DRAFT_BODY, headers=auth_headers(app))
+    assert response.status_code == 409
+    body = response.get_json()
+    assert body["code"] == "CONFLICT"
+    assert "inv_1" in body["message"]
+    assert "was saved but it could not be issued" in body["message"]
+    assert "Folio segment exhausted" in body["message"]
+
+    # El borrador sigue existiendo como DRAFT y se confirmó ANTES de intentar emitir.
+    assert store.invoices[1]["status"] == "DRAFT"
+    assert events.index("commit") < events.index("issue")
+
+
 def test_update_draft_reprices_and_recalculates(client, app, store):
     created = _create_draft(client, app).get_json()
     body = {"customerId": "cus_1", "lines": [{"serviceId": "svc_1", "quantity": 1}]}

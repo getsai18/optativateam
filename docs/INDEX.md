@@ -9,7 +9,7 @@ Los diagramas están en Mermaid y se ven directamente en GitHub.
 |---|---|
 | [01-arquitectura-aws.md](01-arquitectura-aws.md) | Diagrama de arquitectura (dos cuentas, solo Lambda) y flujo de una petición |
 | [02-flujos-y-seguridad.md](02-flujos-y-seguridad.md) | Login, carrito y emisión; estados de factura; matriz RBAC; controles OWASP |
-| [03-modelo-rds-mysql.md](03-modelo-rds-mysql.md) | DER de facturación (RDS MySQL, 11 tablas) |
+| [03-modelo-rds-mysql.md](03-modelo-rds-mysql.md) | DER de facturación (RDS MySQL, 12 tablas, con roles normalizados) |
 | [04-modelo-rds-postgres.md](04-modelo-rds-postgres.md) | DER del catálogo (RDS PostgreSQL, 7 tablas) |
 | [05-modelo-dynamodb.md](05-modelo-dynamodb.md) | Modelo DynamoDB (4 tablas), claves, GSI y patrones de acceso |
 | [06-interconexion-de-datos.md](06-interconexion-de-datos.md) | Cómo se relacionan MySQL, PostgreSQL y DynamoDB |

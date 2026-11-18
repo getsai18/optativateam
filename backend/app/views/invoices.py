@@ -209,7 +209,18 @@ def save_invoice():
     issue_now = request.args.get("issue") == "true"
     invoice_id, action = _persist_draft(body)
     if issue_now:
-        _stamp(invoice_id)
+        # sp_issue_invoice hace START TRANSACTION: si el borrador sigue en la transacción
+        # abierta por Flask, ese START lo confirma implícitamente y una emisión fallida
+        # dejaría el borrador guardado sin que nadie lo sepa. Confirmamos el borrador
+        # primero para que el SP opere sobre un estado ya consistente.
+        db.commit()
+        try:
+            _stamp(invoice_id)
+        except Exception as exc:
+            reason = getattr(exc, "message", None) or str(exc) or exc.__class__.__name__
+            raise conflict(
+                f"The draft {encode_id('inv', invoice_id)} was saved but it could not be issued: {reason}"
+            ) from exc
     db.commit()
     audit.write_entry(g.claims, action, "invoice", encode_id("inv", invoice_id))
     if issue_now:

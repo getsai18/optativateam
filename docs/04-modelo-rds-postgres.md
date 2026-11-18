@@ -91,5 +91,5 @@ erDiagram
 - **Auditoría de tarifas.** El trigger `trg_service_price_audit` registra en `service_price_history`
   cualquier cambio de `base_price` (precio anterior, nuevo, % de cambio, motivo y usuario). El
   procedimiento `sp_update_service_price` fija el usuario y el motivo en la sesión antes de actualizar.
-- **Volumen.** 105 servicios en 8 categorías, 50 características y 441 asignaciones servicio-característica
+- **Volumen.** 104 servicios en 8 categorías, 50 características y 419 asignaciones servicio-característica
   (`database/postgres/04_seed_catalog.sql`).

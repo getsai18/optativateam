@@ -1,10 +1,10 @@
 -- =============================================================================
--- Sistema de Facturación - RDS MySQL 8.0: módulo de FACTURACIÓN (8 tablas)
+-- Sistema de Facturación - RDS MySQL 8.0: módulo de FACTURACIÓN (9 tablas)
 -- Archivo: mysql.sql
 -- Fuente de verdad: frontend/src (shared/types/domain.ts y servicios)
 --
 -- Reparto de datos del proyecto:
---   RDS MySQL   -> clientes, usuarios, emisor, facturas, detalle, pagos, folios (este archivo)
+--   RDS MySQL   -> roles, clientes, usuarios, emisor, facturas, detalle, pagos, folios (este archivo)
 --   RDS Oracle  -> catálogo: servicios, características, impuestos e historial de tasas
 --   DynamoDB    -> auditoría, eventos de factura, sesiones, carrito del wizard
 --
@@ -25,6 +25,8 @@ USE billing_db;
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TRIGGER IF EXISTS trg_app_user_bi;
+DROP TRIGGER IF EXISTS trg_app_user_bu;
 DROP TABLE IF EXISTS payment;
 DROP TABLE IF EXISTS invoice_detail_tax;
 DROP TABLE IF EXISTS invoice_detail;
@@ -33,6 +35,8 @@ DROP TABLE IF EXISTS folio_counter;
 DROP TABLE IF EXISTS issuer;
 DROP TABLE IF EXISTS app_user;
 DROP TABLE IF EXISTS customer;
+-- app_role se borra después de app_user (FK app_user.role_id -> app_role.id)
+DROP TABLE IF EXISTS app_role;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -56,6 +60,24 @@ CREATE TABLE customer (
 ) ENGINE=InnoDB;
 
 -- -----------------------------------------------------------------------------
+-- 1b. Catálogo normalizado de roles
+--     app_user.role se conserva (API y CHECK actuales); role_id es la FK a este catálogo.
+--     Se crea y siembra ANTES de app_user.
+-- -----------------------------------------------------------------------------
+CREATE TABLE app_role (
+    id           TINYINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    code         VARCHAR(10)      NOT NULL,
+    description  VARCHAR(100)     NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_app_role_code (code)
+) ENGINE=InnoDB;
+
+INSERT INTO app_role (id, code, description) VALUES
+    (1, 'ADMIN',    'Administrador: acceso completo'),
+    (2, 'BILLER',   'Facturador: crea y gestiona facturas'),
+    (3, 'CUSTOMER', 'Cliente: solo consulta sus facturas');
+
+-- -----------------------------------------------------------------------------
 -- 2. Usuarios de la aplicación
 --    Frontend: User { email, fullName, role, customerId?, active } + login
 --    password_hash lo genera el backend (bcrypt/argon2).
@@ -65,7 +87,8 @@ CREATE TABLE app_user (
     email          VARCHAR(100)  NOT NULL,
     password_hash  VARCHAR(255)  NOT NULL,
     full_name      VARCHAR(150)  NOT NULL,
-    role           VARCHAR(10)   NOT NULL,
+    role           VARCHAR(10)   NOT NULL,        -- se conserva por compatibilidad con la API
+    role_id        TINYINT UNSIGNED NOT NULL,     -- normalizado -> app_role.id
     customer_id    INT UNSIGNED  NULL,            -- solo rol CUSTOMER
     active         TINYINT(1)    NOT NULL DEFAULT 1,
     created_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -73,12 +96,29 @@ CREATE TABLE app_user (
     PRIMARY KEY (id),
     UNIQUE KEY uq_app_user_email (email),
     KEY ix_app_user_customer (customer_id),
+    KEY ix_app_user_role (role_id),
     CONSTRAINT fk_app_user_customer FOREIGN KEY (customer_id) REFERENCES customer (id),
+    CONSTRAINT fk_app_user_role     FOREIGN KEY (role_id) REFERENCES app_role (id),
     CONSTRAINT ck_app_user_role    CHECK (role IN ('ADMIN', 'BILLER', 'CUSTOMER')),
     CONSTRAINT ck_app_user_active  CHECK (active IN (0, 1)),
     CONSTRAINT ck_app_user_customer_ck CHECK ((role = 'CUSTOMER' AND customer_id IS NOT NULL)
                                            OR (role <> 'CUSTOMER' AND customer_id IS NULL))
 ) ENGINE=InnoDB;
+
+-- La API sigue insertando/actualizando solo `role`; los triggers mantienen `role_id`
+-- sincronizado con el catálogo para no romper backend/app/repos.py ni a los clientes.
+DELIMITER //
+CREATE TRIGGER trg_app_user_bi BEFORE INSERT ON app_user
+FOR EACH ROW
+BEGIN
+    SET NEW.role_id = (SELECT id FROM app_role WHERE code = NEW.role);
+END//
+CREATE TRIGGER trg_app_user_bu BEFORE UPDATE ON app_user
+FOR EACH ROW
+BEGIN
+    SET NEW.role_id = (SELECT id FROM app_role WHERE code = NEW.role);
+END//
+DELIMITER ;
 
 -- -----------------------------------------------------------------------------
 -- 3. Emisor de facturas (constante del frontend: shared/constants/company.ts)

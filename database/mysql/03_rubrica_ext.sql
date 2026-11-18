@@ -197,7 +197,10 @@ SELECT * FROM (
     UNION ALL SELECT 'Volumen >= 150,000', NULL, 150000.00, 0.0500
     UNION ALL SELECT 'Cliente preferente', (SELECT MIN(id) FROM customer), NULL, 0.0400
 ) seed
-WHERE NOT EXISTS (SELECT 1 FROM discount_rule);
+WHERE NOT EXISTS (SELECT 1 FROM discount_rule)
+  -- Sin clientes cargados (por ejemplo en CI con --fresh sin --seed), la regla de
+  -- cliente tendría customer_id NULL y violaría ck_discount_rule_target.
+  AND (customer_id IS NOT NULL OR min_subtotal IS NOT NULL);
 
 DROP PROCEDURE IF EXISTS _add_column_if_missing;
 DROP PROCEDURE IF EXISTS _add_check_if_missing;
