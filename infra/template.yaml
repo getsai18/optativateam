@@ -312,6 +312,8 @@ Resources:
           AUDIT_BACKEND: dynamodb
           AUDIT_TABLE: !Ref AuditLogTable
           AUDIT_REQUIRED: 'false'
+          USER_SESSION_TABLE: !Ref UserSessionTable
+          DYNAMODB_RATE_LIMIT: 'true'
           CORS_ORIGINS: !Sub https://${FrontendHttpApi}.execute-api.${AWS::Region}.amazonaws.com,http://billing-frontend-${AWS::AccountId}-${Stage}.s3-website-${AWS::Region}.amazonaws.com,http://localhost:5173
       Events:
         Login:
