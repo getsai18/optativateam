@@ -1,29 +1,35 @@
 # 3. Modelo relacional — RDS MySQL 8 (facturación)
 
-Base `billing_db`. Contiene usuarios, clientes, emisor, facturas, líneas, desglose de impuestos,
-contador de folios y pagos: **8 tablas**. Script: `database/mysql/01_schema.sql`.
+Base `Facturacion_Mysql` (RDS `db.t3.micro`, 20 GB gp2, TLS). **11 tablas**: usuarios, clientes, emisor,
+facturas, líneas, desglose de impuestos, folios, pagos, reglas de descuento, asientos contables y cierres
+fiscales. Scripts: `database/mysql/01_schema.sql` (DDL base) y `database/mysql/03_rubrica_ext.sql`
+(extensión de la rúbrica). Stored Procedures: `database/procedures/mysql_procedures.sql`.
 
 ```mermaid
 erDiagram
     customer ||--o{ app_user : "cuenta con rol CUSTOMER"
     customer ||--o{ invoice : "recibe"
+    customer ||--o{ discount_rule : "descuento del cliente"
     issuer ||--o{ invoice : "emite"
     app_user ||--o{ invoice : "crea"
     app_user ||--o{ payment : "registra"
+    app_user ||--o{ accounting_entry : "genera"
+    app_user ||--o{ fiscal_closing : "ejecuta"
     invoice ||--|{ invoice_detail : "contiene"
     invoice ||--o| payment : "un solo pago"
-    invoice_detail ||--o{ invoice_detail_tax : "desglose de impuestos"
+    invoice ||--o{ accounting_entry : "asientos"
+    invoice_detail ||--o{ invoice_detail_tax : "impuestos trasladados y retenidos"
 
     customer {
         int id PK
-        varchar name
         varchar tax_id UK "RFC"
         varchar email UK
+        varchar name
         varchar phone
         varchar address
         tinyint active
-        timestamp created_at
-        timestamp updated_at
+        datetime created_at
+        datetime updated_at
     }
     app_user {
         int id PK
@@ -33,43 +39,46 @@ erDiagram
         varchar role "ADMIN BILLER CUSTOMER"
         int customer_id FK "solo rol CUSTOMER"
         tinyint active
-        timestamp created_at
-        timestamp updated_at
+        datetime created_at
+        datetime updated_at
     }
     issuer {
         int id PK
-        varchar legal_name
         varchar tax_id UK
+        varchar legal_name
         varchar address
         tinyint active
     }
     invoice {
         int id PK
-        varchar uuid UK "se asigna al emitir"
+        char uuid UK "al emitir"
         varchar folio UK "INV-AAAA-NNNN"
         int issuer_id FK
         int customer_id FK
         int created_by FK
         varchar status "DRAFT ISSUED PAID CANCELLED"
-        varchar receiver_name "copia del cliente"
-        varchar receiver_tax_id "copia del cliente"
-        varchar receiver_address "copia del cliente"
+        varchar receiver_name "copia"
+        varchar receiver_tax_id "copia"
+        varchar receiver_address "copia"
         decimal subtotal
-        decimal tax_total
+        decimal discount_pct
+        decimal discount_total
+        decimal tax_total "trasladados"
+        decimal withholding_total "retenidos"
         decimal total
-        timestamp created_at
-        timestamp issued_at
-        timestamp paid_at
-        timestamp cancelled_at
+        datetime created_at
+        datetime issued_at
+        datetime paid_at
+        datetime cancelled_at
         varchar cancellation_reason
     }
     invoice_detail {
         int id PK
         int invoice_id FK
-        int service_id "referencia al catálogo en PostgreSQL"
-        varchar service_name "copia del servicio"
-        int quantity "1 a 9999"
-        decimal unit_price "copia del precio"
+        int service_id "ref. logica a PostgreSQL"
+        varchar service_name "copia"
+        int quantity
+        decimal unit_price "copia"
         decimal line_subtotal
         decimal tax_amount
         decimal line_total
@@ -77,39 +86,87 @@ erDiagram
     invoice_detail_tax {
         int id PK
         int invoice_detail_id FK
-        int tax_id "referencia al catálogo en PostgreSQL"
-        varchar tax_code "copia del impuesto"
-        varchar tax_name "copia del impuesto"
-        decimal rate "tasa aplicada"
+        smallint tax_id "ref. logica a PostgreSQL"
+        varchar tax_code "copia"
+        varchar tax_name "copia"
+        varchar kind "TRANSFER WITHHELD"
+        decimal rate
         decimal amount
     }
     folio_counter {
-        int year PK
+        smallint year PK
         int last_number
     }
     payment {
         int id PK
-        int invoice_id FK "UK: un pago por factura"
+        int invoice_id FK,UK
         varchar method "CARD TRANSFER CASH"
         decimal amount
         varchar reference
-        timestamp paid_at
+        datetime paid_at
         int registered_by FK
+    }
+    discount_rule {
+        int id PK
+        varchar name
+        int customer_id FK "NULL = regla de volumen"
+        decimal min_subtotal
+        decimal pct
+        tinyint active
+        datetime created_at
+    }
+    accounting_entry {
+        int id PK
+        int invoice_id FK
+        varchar entry_type "ISSUE PAYMENT REVERSAL"
+        varchar account
+        decimal debit
+        decimal credit
+        int created_by FK
+        datetime created_at
+    }
+    fiscal_closing {
+        int id PK
+        varchar period_type "DAY MONTH"
+        date period_start "UK con period_type"
+        date period_end
+        int invoice_count
+        int cancelled_count
+        decimal subtotal
+        decimal discount_total
+        decimal tax_total
+        decimal withholding_total
+        decimal total
+        decimal collected_total
+        int closed_by FK
+        datetime closed_at
     }
 ```
 
-## Decisiones de diseño
+## Reglas de integridad
 
-- **Copias (snapshots) en la factura.** `receiver_*`, `service_name`, `unit_price`, `tax_code`,
-  `tax_name` y `rate` se guardan en la propia factura. Una factura emitida es un documento fiscal:
-  no debe cambiar si el cliente, el servicio o la tasa se modifican después.
-- **Folio atómico.** `folio_counter` guarda un contador por año. Se incrementa dentro de la misma
-  transacción que emite la factura, con la fila bloqueada (`FOR UPDATE`), para que dos emisiones
-  simultáneas nunca obtengan el mismo folio.
-- **Integridad de estados.** `status` solo admite los cuatro valores y las transiciones válidas se
-  validan en la aplicación (ver [02-flujos-y-seguridad.md](02-flujos-y-seguridad.md)).
-- **Un pago por factura.** `payment.invoice_id` es único.
-- **Unicidad.** Correo de usuario, RFC de cliente, folio y uuid de factura son únicos.
-- **Referencias entre bases.** `invoice_detail.service_id` e `invoice_detail_tax.tax_id` apuntan al
-  catálogo en PostgreSQL. No pueden ser llaves foráneas porque son bases distintas; la aplicación
-  las valida antes de guardar (ver [06-interconexion-de-datos.md](06-interconexion-de-datos.md)).
+| Tabla | Restricción | Propósito |
+|---|---|---|
+| `app_user` | `CHECK (role='CUSTOMER' AND customer_id IS NOT NULL) OR (role<>'CUSTOMER' AND customer_id IS NULL)` | Solo los clientes se ligan a un `customer` |
+| `invoice` | `CHECK status IN (...)`, `CHECK` motivo obligatorio si `CANCELLED`, importes ≥ 0, `discount_pct` entre 0 y 1 | Máquina de estados y montos válidos |
+| `invoice_detail` | `UNIQUE (invoice_id, service_id)`, cantidad 1–9999 | Un servicio por factura |
+| `invoice_detail_tax` | `UNIQUE (invoice_detail_id, tax_id)`, `rate` 0–1, `kind IN ('TRANSFER','WITHHELD')` | Desglose sin duplicados |
+| `payment` | `UNIQUE (invoice_id)`, `amount > 0`, método en lista | Un pago total por factura |
+| `discount_rule` | `pct` 0–0.5, `customer_id` o `min_subtotal` obligatorio | Reglas de descuento válidas |
+| `accounting_entry` | `debit ≥ 0`, `credit ≥ 0`, solo uno distinto de cero | Partida doble |
+| `fiscal_closing` | `UNIQUE (period_type, period_start)`, `period_end > period_start` | Un cierre por periodo |
+
+## Índices de consulta frecuente
+
+| Índice | Consulta que acelera |
+|---|---|
+| `invoice (status, issued_at)`, `invoice (status, created_at)` | Listados por estado, dashboard, cierres |
+| `invoice (customer_id, status, issued_at)` | Facturas del cliente y antigüedad de saldos |
+| `invoice (status, cancelled_at)` | Cancelaciones del periodo en el cierre |
+| `accounting_entry (invoice_id, entry_type)` | Reversión contable de una factura |
+| `discount_rule (customer_id, active)`, `(active, min_subtotal)` | Búsqueda de la mejor regla de descuento |
+
+## Volumen
+
+50 clientes, ~158 facturas (borradores, emitidas, pagadas y canceladas en 6 meses), ~390 líneas, ~730 asientos
+contables y 14 cierres fiscales. Generados con `database/seed/` usando los propios Stored Procedures.

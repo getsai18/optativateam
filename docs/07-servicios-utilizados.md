@@ -1,63 +1,56 @@
 # 7. Servicios utilizados
 
-Todos los servicios están disponibles en AWS Academy Learner Lab. El cómputo es **solo Lambda**.
+Todos los servicios están disponibles en AWS Academy Learner Lab. El cómputo es **solo Lambda** y el sistema
+se reparte en **dos cuentas** de Learner Lab: una de datos (RDS) y una de aplicación (todo lo demás).
 
 ## 7.1 Servicios AWS
 
-| Servicio | Uso en el proyecto | Configuración |
-|---|---|---|
-| **S3** | Aloja el frontend web estático (React + Vite) | Bucket con alojamiento de sitio web; `index.html` como documento de error para el enrutado de la SPA |
-| **API Gateway (HTTP API)** | Punto de entrada único de la API; enruta a las Lambdas y aplica el authorizer | CORS limitado al origen del frontend; todas las rutas hacia `billing-api` y `/cart` hacia `cart` (cuando se despliegue) |
-| **Lambda** `billing-api` | Backend Flask (adaptador WSGI): clientes, catálogo, facturas, pagos, impuestos, usuarios, dashboard, auditoría | Python 3.12; variables de entorno para bases, secreto JWT y auditoría |
-| **Lambda** `authorizer` | Valida el JWT antes de llegar al backend | Usa el mismo `JWT_SECRET`; caché de resultados de 300 s. Código listo en `backend/functions/authorizer`; la guía de despliegue actual lo marca como opcional (Flask ya valida el token) |
-| **Lambda** `cart` | Guarda, recupera y borra el carrito del asistente de facturación | Lee `sub` del contexto del authorizer; tabla en `CART_TABLE`. Código listo en `backend/functions/cart`; pendiente de desplegar y de conectar en el frontend |
-| **Lambda** `tax_rate_sync` | Activa las tasas de impuesto programadas | Disparada por EventBridge; escribe en PostgreSQL |
-| **EventBridge** | Programa la ejecución diaria de `tax_rate_sync` | `cron(5 0 * * ? *)` (00:05 UTC) |
-| **RDS MySQL 8** | Base transaccional de facturación (8 tablas) | `db.t3.micro`, almacenamiento de hasta 20 GB, TLS obligatorio |
-| **RDS PostgreSQL** | Catálogo de servicios, características e impuestos (6 tablas) | `db.t3.micro`, almacenamiento de hasta 20 GB, TLS obligatorio |
-| **DynamoDB** | Auditoría, carrito, sesiones y eventos de factura (4 tablas) | Modo On-Demand; TTL en sesiones y carritos; 2 GSI en auditoría |
-| **CloudWatch** | Logs y métricas de API Gateway y de las Lambdas | Grupos de logs por función |
-| **IAM** | Permisos de ejecución de las Lambdas | Rol `LabRole` preconfigurado |
+| Servicio | Cuenta | Uso en el proyecto | Configuración |
+|---|---|---|---|
+| **S3** | Aplicación | Frontend web estático (React + Vite) | Bucket `billing-frontend-<cuenta>-<stage>` con alojamiento web; `index.html` como documento de error para la SPA; lectura pública solo de objetos |
+| **API Gateway (HTTP API)** | Aplicación | Punto de entrada único de la API | CORS limitado al origen del frontend; throttling 25 req/s (ráfaga 50); authorizer en todas las rutas salvo `/auth/login` y `/health` |
+| **Lambda** `billing-api` | Aplicación | Backend Flask (adaptador `apig-wsgi`): clientes, catálogo, facturas, pagos, impuestos, usuarios, reportes, dashboard, auditoría | Python 3.12, **256 MB**, 20 s; variables de entorno para bases, JWT y auditoría |
+| **Lambda** `billing-authorizer` | Aplicación | Valida el JWT (HS256) antes de llegar al backend | 128 MB, 5 s; payload 1.0 (responde 401); caché de 300 s |
+| **Lambda** `billing-cart` | Aplicación | Guarda, recupera y borra el carrito del asistente de facturación | 128 MB; el usuario sale del contexto del authorizer, nunca del body |
+| **Lambda** `billing-tax-rate-sync` | Aplicación | Activa las tasas de impuesto programadas | 128 MB; llama a `sp_sync_tax_rates` en PostgreSQL |
+| **EventBridge** | Aplicación | Ejecución diaria de `billing-tax-rate-sync` | `cron(5 0 * * ? *)` (00:05 UTC) |
+| **DynamoDB** | Aplicación | Auditoría, carrito, sesiones y eventos de factura (4 tablas) | On-Demand; TTL en sesiones y carritos; 2 GSI en auditoría |
+| **CloudWatch Logs** | Aplicación | Logs de las 4 Lambdas | Retención de 7 días |
+| **CloudFormation (SAM)** | Aplicación | Infraestructura como código (`infra/template.yaml`) | Stack `billing-<stage>`; sin creación de roles IAM |
+| **IAM** | Aplicación | Rol de ejecución de las Lambdas | `LabRole` preconfigurado |
+| **RDS MySQL 8.4** | Datos | Base transaccional de facturación (11 tablas, 10 SPs) | `db.t3.micro`, 20 GB gp2, TLS obligatorio |
+| **RDS PostgreSQL 18** | Datos | Catálogo de servicios, características e impuestos (7 tablas, 4 SPs + trigger) | `db.t3.micro`, 20 GB gp2, TLS obligatorio |
 
 ## 7.2 Servicios descartados
 
 | Servicio | Motivo |
 |---|---|
-| **EC2** | El backend corre en Lambda; ya no se necesita servidor ni bastión |
+| **EC2** | El backend corre en Lambda; no se necesita servidor ni bastión |
 | **ALB / ELB** | Sin servidores que balancear; API Gateway cumple esa función |
+| **NAT Gateway / VPC** | Cobra por hora; las Lambdas llegan a RDS por su endpoint público con TLS |
 | **ElastiCache** | Cobra por hora y no aporta lo suficiente para el volumen del proyecto |
-| **SQS** | La auditoría se escribe directo en DynamoDB, que es suficientemente rápido |
+| **CloudFront** | No necesario para la demo; S3 website basta y evita costos |
 
 ## 7.3 Tecnologías de aplicación
 
 | Capa | Tecnología |
 |---|---|
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, Zustand, React Router, React Hook Form, Zod |
-| Backend | Python 3.12, Flask, adaptador WSGI para Lambda |
+| Backend | Python 3.12, Flask, `apig-wsgi` (Lambda) |
 | Autenticación | JWT (PyJWT, HS256) y bcrypt |
 | Acceso a datos | PyMySQL, psycopg 3, boto3 |
-| Pruebas | pytest (backend), Vitest (frontend) |
-| Despliegue | Serverless Framework, AWS CLI, scripts SQL y `dynamodb.sh` |
+| Pruebas | pytest (126 pruebas de backend), Vitest (frontend) |
+| Despliegue | CloudFormation/SAM con `infra/deploy.py`; scripts SQL con `database/apply.py` |
 
 ## 7.4 Cumplimiento de las restricciones del Learner Lab
 
-| Restricción | Cómo se atiende | Estado |
-|---|---|---|
-| RDS `db.t3.micro` o `db.t4g.micro`, máximo 20 GB | Ambas instancias son `db.t3.micro`; al crearlas se fija el almacenamiento en 20 GB (la guía de despliegue no lo especifica y debe agregarse) | Cumple en clase de instancia; tamaño de disco por confirmar |
-| Apagar RDS fuera de horario | Se detienen las dos instancias al terminar la sesión de trabajo | Procedimiento manual |
-| DynamoDB On-Demand | Las cuatro tablas usan `PAY_PER_REQUEST` | Cumple |
-| Lambda entre 128 y 256 MB | Objetivo: 256 MB en todas las funciones | Pendiente de ajustar: la configuración actual del backend es 512 MB |
-| Sin roles IAM con wildcard; usar `LabRole` | Las Lambdas se ejecutan con `LabRole` | Cumple al desplegar |
-| Sin IP pública estática | Los endpoints se pasan por variables de entorno (`BILLING_DB_HOST`, `CATALOG_DB_HOST`, `VITE_API_URL`) | Cumple |
-| Credenciales temporales renovables | Sin credenciales en el código; las variables de entorno se actualizan con cada despliegue | Cumple |
-
-## 7.5 Mínimos de la rúbrica del Proyecto C
-
-| Requisito | Estado |
+| Restricción | Cómo se atiende |
 |---|---|
-| Mínimo 8 tablas relacionales en RDS | Cumple: 8 en MySQL y 6 en PostgreSQL |
-| DynamoDB para auditoría, sesiones y carritos | Cumple: 4 tablas |
-| 100 servicios y 50 características | Pendiente: carga de datos sintéticos |
-| 10 Stored Procedures en RDS | Parcial: existen 12 procedimientos en `database/procedures/_legacy_avance1.sql`; falta que la aplicación los invoque y cubrir los temas de retenciones, descuentos, cierre fiscal y antigüedad de saldos |
-| JWT y RBAC | Cumple |
-| Documentación: DER, arquitectura, OpenAPI o Postman | Parcial: DER y arquitectura en esta carpeta; falta OpenAPI o colección de Postman |
+| RDS `db.t3.micro` o `db.t4g.micro`, máximo 20 GB | Ambas instancias son `db.t3.micro` con 20 GB gp2 |
+| Apagar RDS fuera de horario | Se detienen las dos instancias al terminar la sesión de trabajo |
+| DynamoDB On-Demand | Las cuatro tablas usan `PAY_PER_REQUEST` |
+| Lambda entre 128 y 256 MB | `billing-api` 256 MB; las otras tres 128 MB |
+| Sin roles IAM con wildcard; usar `LabRole` | Todas las Lambdas usan `LabRole`; la plantilla no crea roles |
+| Sin IP pública estática | Endpoints por variables de entorno; la URL de la API se inyecta al compilar el frontend |
+| Credenciales temporales renovables | `deploy.py` usa el perfil `learnerlab` de `~/.aws/credentials`; no hay credenciales en el código |
+| Consumo de crédito | Sin EC2/NAT/ALB; logs con retención de 7 días; throttling en API Gateway |

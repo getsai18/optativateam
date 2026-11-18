@@ -1,8 +1,9 @@
 # 5. Modelo NoSQL — Amazon DynamoDB
 
-Cuatro tablas en modo **On-Demand** (`PAY_PER_REQUEST`). Guardan eventos, sesiones y datos
-temporales; no duplican datos de las bases relacionales. Script:
-`database/dynamodb/dynamodb.sh`.
+Cuatro tablas en modo **On-Demand** (`PAY_PER_REQUEST`) en la cuenta de aplicación. Guardan eventos,
+sesiones y datos temporales; no duplican datos de las bases relacionales. Las crea la plantilla
+`infra/template.yaml` con el sufijo del stage (por ejemplo `billing_audit_log_dev`);
+`database/dynamodb/dynamodb.sh` crea las mismas tablas sin sufijo para pruebas manuales.
 
 ```mermaid
 erDiagram
@@ -78,7 +79,7 @@ erDiagram
 
 | Tabla | Estado |
 |---|---|
-| `billing_audit_log` | En uso por el backend |
-| `billing_invoice_cart` | Creada; la Lambda `cart` está escrita y falta desplegarla y conectarla al frontend |
-| `billing_invoice_event` | Creada, pendiente de conectar |
-| `billing_user_session` | Creada, pendiente de conectar |
+| `billing_audit_log` | En uso: la Lambda `billing-api` escribe cada cambio y la pantalla Bitácora la consulta |
+| `billing_invoice_cart` | En uso: la Lambda `billing-cart` guarda el carrito del asistente de facturación |
+| `billing_invoice_event` | Creada con el stack; reservada para la línea de tiempo de facturas |
+| `billing_user_session` | Creada con el stack; reservada para revocación de sesiones |

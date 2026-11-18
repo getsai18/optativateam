@@ -1,9 +1,12 @@
-# 1. Arquitectura en AWS (solo Lambda)
+# 1. Arquitectura en AWS (solo Lambda, dos cuentas de Learner Lab)
+
+La infraestructura de la cuenta de aplicación se crea con `infra/template.yaml` (CloudFormation/SAM) ejecutando `python infra/deploy.py`. Las bases relacionales viven en una cuenta de datos separada.
 
 ```mermaid
 flowchart LR
     U["Usuario<br/>(navegador)"]
 
+    subgraph APP["Cuenta de aplicación (LabRole)"]
     subgraph FE["Frontend"]
         S3["S3<br/>sitio estático React"]
     end
@@ -14,19 +17,20 @@ flowchart LR
     end
 
     subgraph COMPUTE["Cómputo: solo Lambda"]
-        L_API["Lambda billing-api<br/>Flask vía WSGI<br/>clientes, catálogo, facturas,<br/>pagos, impuestos, usuarios"]
-        L_CART["Lambda cart<br/>carrito del wizard"]
-        L_TAX["Lambda tax_rate_sync<br/>actualiza tasas vigentes"]
+        L_API["Lambda billing-api 256 MB<br/>Flask + apig-wsgi<br/>facturas, catálogo, pagos,<br/>impuestos, usuarios, reportes"]
+        L_CART["Lambda billing-cart<br/>carrito del wizard"]
+        L_TAX["Lambda billing-tax-rate-sync<br/>sp_sync_tax_rates"]
     end
 
-    subgraph DATA["Datos"]
-        MYSQL[("RDS MySQL 8<br/>facturación<br/>8 tablas + SPs")]
-        PG[("RDS PostgreSQL<br/>catálogo<br/>6 tablas")]
-        DDB[("DynamoDB<br/>auditoría, carrito,<br/>sesiones, eventos")]
-    end
-
+    DDB[("DynamoDB On-Demand<br/>auditoría, carrito,<br/>sesiones, eventos")]
     EB["EventBridge<br/>cron diario 00:05 UTC"]
-    CW["CloudWatch<br/>logs y métricas"]
+    CW["CloudWatch Logs<br/>retención 7 días"]
+    end
+
+    subgraph DATA["Cuenta de datos"]
+        MYSQL[("RDS MySQL 8.4<br/>facturación<br/>11 tablas + 10 SPs")]
+        PG[("RDS PostgreSQL 18<br/>catálogo<br/>7 tablas + 4 SPs + trigger")]
+    end
 
     U --> S3
     U -->|"HTTPS + Bearer JWT"| APIGW
@@ -60,7 +64,7 @@ flowchart LR
 6. Cada acción que modifica datos se registra en **DynamoDB** (`billing_audit_log`).
 7. **EventBridge** ejecuta una vez al día `tax_rate_sync`, que activa las tasas de impuesto
    programadas para esa fecha.
-8. **CloudWatch** recibe los logs y métricas de API Gateway y de las tres Lambdas.
+8. **CloudWatch** recibe los logs de las cuatro Lambdas (retención de 7 días).
 
 ## Qué cambia al no usar EC2
 

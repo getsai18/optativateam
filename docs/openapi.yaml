@@ -1,0 +1,752 @@
+openapi: 3.0.3
+info:
+  title: Sistema de Facturación y Servicios — API
+  version: 1.0.0
+  description: |
+    API REST del Proyecto C (Optativa I – Bases de Datos en la Nube).
+
+    * **Despliegue:** API Gateway HTTP API → Lambda `billing-api` (Flask) en AWS Learner Lab.
+    * **Autenticación:** `POST /auth/login` devuelve un JWT HS256 (expira en 30 min). El resto de las
+      rutas exige `Authorization: Bearer <token>`; un Lambda authorizer lo valida antes del backend.
+    * **RBAC:** roles `ADMIN`, `BILLER`, `CUSTOMER` (ver cada operación).
+    * **IDs:** cadenas con prefijo (`cus_1`, `svc_12`, `inv_40`, `tax_1`, `feat_4`, `usr_2`).
+    * **Errores:** `{ "code": "...", "message": "..." }`. Las reglas que rechaza un Stored Procedure
+      (SIGNAL / RAISE) se devuelven como `409 CONFLICT` con el mensaje del procedimiento.
+    * **Stored Procedures:** cada operación indica el SP que ejecuta en RDS (`x-stored-procedure`).
+
+    Importar en Postman: *Import → File →* este archivo.
+servers:
+  - url: https://{apiId}.execute-api.us-east-1.amazonaws.com
+    description: API Gateway (salida ApiUrl de `python infra/deploy.py`)
+    variables:
+      apiId:
+        default: jkknp75s5m
+  - url: http://127.0.0.1:5000
+    description: Local (`python backend/wsgi.py`)
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+  - name: Customers
+  - name: Users
+  - name: Catalog
+  - name: Taxes
+  - name: Invoices
+  - name: Payments
+  - name: Reports
+  - name: Cart
+  - name: Dashboard
+
+paths:
+  /health:
+    get:
+      tags: [Auth]
+      summary: Estado del servicio
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { status: { type: string, example: ok } } }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Inicia sesión (bcrypt) y devuelve un JWT
+      description: Límite de 5 intentos fallidos por IP y correo en 15 minutos.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, example: admin@northwind.test }
+                password: { type: string, format: password, example: demo1234 }
+      responses:
+        '200':
+          description: Token y claims
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  claims: { $ref: '#/components/schemas/Claims' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { description: Demasiados intentos }
+
+  /customers:
+    get:
+      tags: [Customers]
+      summary: Lista clientes (ADMIN, BILLER)
+      responses:
+        '200':
+          description: Clientes
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Customer' } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Customers]
+      summary: Crea cliente (ADMIN, BILLER)
+      requestBody: { $ref: '#/components/requestBodies/CustomerInput' }
+      responses:
+        '200': { description: Cliente creado, content: { application/json: { schema: { $ref: '#/components/schemas/Customer' } } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /customers/{id}:
+    put:
+      tags: [Customers]
+      summary: Actualiza cliente (ADMIN)
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody: { $ref: '#/components/requestBodies/CustomerInput' }
+      responses:
+        '200': { description: Cliente, content: { application/json: { schema: { $ref: '#/components/schemas/Customer' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /users:
+    get:
+      tags: [Users]
+      summary: Lista usuarios (ADMIN)
+      responses:
+        '200': { description: Usuarios, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/User' } } } } }
+    post:
+      tags: [Users]
+      summary: Crea usuario (ADMIN); la contraseña se guarda con bcrypt
+      requestBody: { $ref: '#/components/requestBodies/UserInput' }
+      responses:
+        '200': { description: Usuario, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /users/{id}:
+    put:
+      tags: [Users]
+      summary: Actualiza usuario (ADMIN)
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody: { $ref: '#/components/requestBodies/UserInput' }
+      responses:
+        '200': { description: Usuario, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+
+  /services:
+    get:
+      tags: [Catalog]
+      summary: Lista servicios con impuestos y características (ADMIN, BILLER)
+      responses:
+        '200': { description: Servicios, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Service' } } } } }
+    post:
+      tags: [Catalog]
+      summary: Crea servicio (ADMIN)
+      requestBody: { $ref: '#/components/requestBodies/ServiceInput' }
+      responses:
+        '200': { description: Servicio, content: { application/json: { schema: { $ref: '#/components/schemas/Service' } } } }
+  /services/{id}:
+    put:
+      tags: [Catalog]
+      summary: Actualiza servicio (ADMIN)
+      description: Si cambia `basePrice` se ejecuta `sp_update_service_price` y queda registrado en `service_price_history`.
+      x-stored-procedure: sp_update_service_price (PostgreSQL)
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody: { $ref: '#/components/requestBodies/ServiceInput' }
+      responses:
+        '200': { description: Servicio, content: { application/json: { schema: { $ref: '#/components/schemas/Service' } } } }
+  /services/{id}/price-history:
+    get:
+      tags: [Catalog]
+      summary: Auditoría de cambios de tarifa (ADMIN, BILLER)
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200': { description: Historial, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/PriceHistory' } } } } }
+
+  /features:
+    get:
+      tags: [Catalog]
+      summary: Lista características (autenticado)
+      responses:
+        '200': { description: Características, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Feature' } } } } }
+    post:
+      tags: [Catalog]
+      summary: Crea característica (ADMIN)
+      requestBody: { $ref: '#/components/requestBodies/FeatureInput' }
+      responses:
+        '200': { description: Característica, content: { application/json: { schema: { $ref: '#/components/schemas/Feature' } } } }
+  /features/{id}:
+    put:
+      tags: [Catalog]
+      summary: Actualiza característica (ADMIN)
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody: { $ref: '#/components/requestBodies/FeatureInput' }
+      responses:
+        '200': { description: Característica, content: { application/json: { schema: { $ref: '#/components/schemas/Feature' } } } }
+    delete:
+      tags: [Catalog]
+      summary: Elimina característica sin servicios asignados (ADMIN)
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /features/bulk-assign:
+    post:
+      tags: [Catalog]
+      summary: Asignación masiva de características a servicios (ADMIN)
+      x-stored-procedure: sp_bulk_assign_features (PostgreSQL)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [serviceIds, featureIds, value]
+              properties:
+                serviceIds: { type: array, maxItems: 500, items: { type: string }, example: [svc_2, svc_3] }
+                featureIds: { type: array, maxItems: 100, items: { type: string }, example: [feat_4] }
+                value: { type: string, maxLength: 100, example: '100' }
+      responses:
+        '200':
+          description: Asignaciones creadas o actualizadas
+          content: { application/json: { schema: { type: object, properties: { affected: { type: integer } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /taxes:
+    get:
+      tags: [Taxes]
+      summary: Lista impuestos (trasladados y retenidos)
+      responses:
+        '200': { description: Impuestos, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Tax' } } } } }
+  /taxes/history:
+    get:
+      tags: [Taxes]
+      summary: Historial de tasas con vigencias
+      responses:
+        '200': { description: Historial, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/TaxHistory' } } } } }
+  /taxes/{id}/rates:
+    post:
+      tags: [Taxes]
+      summary: Programa una nueva tasa (ADMIN)
+      x-stored-procedure: sp_change_tax_rate (PostgreSQL)
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rate, validFrom]
+              properties:
+                rate: { type: number, minimum: 0, maximum: 1, example: 0.08 }
+                validFrom: { type: string, format: date, example: '2026-12-01' }
+      responses:
+        '200': { description: Impuesto, content: { application/json: { schema: { $ref: '#/components/schemas/Tax' } } } }
+        '400': { $ref: '#/components/responses/Validation' }
+
+  /invoices:
+    get:
+      tags: [Invoices]
+      summary: Lista facturas (CUSTOMER solo ve las suyas y nunca borradores)
+      responses:
+        '200': { description: Facturas, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Invoice' } } } } }
+    post:
+      tags: [Invoices]
+      summary: Crea borrador y, con `?issue=true`, lo emite (ADMIN, BILLER)
+      x-stored-procedure: sp_calculate_invoice_totals, sp_apply_discount; con issue=true sp_issue_invoice, sp_next_folio (MySQL)
+      parameters:
+        - { name: issue, in: query, schema: { type: string, enum: ['true'] } }
+      requestBody: { $ref: '#/components/requestBodies/DraftInput' }
+      responses:
+        '200': { description: Factura, content: { application/json: { schema: { $ref: '#/components/schemas/Invoice' } } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /invoices/{id}:
+    get:
+      tags: [Invoices]
+      summary: Detalle de factura
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200': { description: Factura, content: { application/json: { schema: { $ref: '#/components/schemas/Invoice' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Invoices]
+      summary: Edita un borrador (ADMIN, BILLER)
+      x-stored-procedure: sp_calculate_invoice_totals (MySQL)
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody: { $ref: '#/components/requestBodies/DraftInput' }
+      responses:
+        '200': { description: Factura, content: { application/json: { schema: { $ref: '#/components/schemas/Invoice' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Invoices]
+      summary: Elimina un borrador (ADMIN, BILLER)
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /invoices/{id}/issue:
+    post:
+      tags: [Invoices]
+      summary: Emite un borrador (folio atómico, UUID, asiento contable)
+      x-stored-procedure: sp_issue_invoice → sp_calculate_invoice_totals, sp_apply_discount, sp_next_folio (MySQL)
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200': { description: Factura emitida, content: { application/json: { schema: { $ref: '#/components/schemas/Invoice' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /invoices/{id}/cancel:
+    post:
+      tags: [Invoices]
+      summary: Cancelación formal con reversión contable (ADMIN, BILLER)
+      x-stored-procedure: sp_cancel_invoice (MySQL)
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 5, maxLength: 255, example: Error en datos del receptor }
+      responses:
+        '200': { description: Factura cancelada, content: { application/json: { schema: { $ref: '#/components/schemas/Invoice' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /invoices/{id}/stamp:
+    get:
+      tags: [Invoices]
+      summary: Estructura del comprobante para timbrado (JSON tipo CFDI 4.0)
+      x-stored-procedure: sp_build_stamp_payload (MySQL)
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200': { description: Comprobante, content: { application/json: { schema: { type: object, additionalProperties: true } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /invoices/{id}/accounting:
+    get:
+      tags: [Invoices]
+      summary: Asientos contables de la factura (ADMIN, BILLER)
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200': { description: Asientos, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AccountingEntry' } } } } }
+
+  /invoices/{id}/payments:
+    get:
+      tags: [Payments]
+      summary: Pagos de una factura
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses:
+        '200': { description: Pagos, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Payment' } } } } }
+    post:
+      tags: [Payments]
+      summary: Registra el pago total de una factura emitida (ADMIN, BILLER)
+      x-stored-procedure: sp_register_payment (MySQL)
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [method]
+              properties:
+                method: { type: string, enum: [CARD, TRANSFER, CASH] }
+      responses:
+        '200': { description: Pago, content: { application/json: { schema: { $ref: '#/components/schemas/Payment' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /reports/aging:
+    get:
+      tags: [Reports]
+      summary: Antigüedad de saldos por cliente (ADMIN, BILLER)
+      x-stored-procedure: sp_aging_report (MySQL)
+      parameters:
+        - { name: asOf, in: query, schema: { type: string, format: date } }
+      responses:
+        '200': { description: Saldos, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AgingRow' } } } } }
+  /reports/fiscal-closings:
+    get:
+      tags: [Reports]
+      summary: Cierres fiscales registrados (ADMIN, BILLER)
+      responses:
+        '200': { description: Cierres, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/FiscalClosing' } } } } }
+    post:
+      tags: [Reports]
+      summary: Ejecuta el cierre y consolidado fiscal diario o mensual (ADMIN)
+      x-stored-procedure: sp_fiscal_closing (MySQL)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [periodType, date]
+              properties:
+                periodType: { type: string, enum: [DAY, MONTH] }
+                date: { type: string, format: date }
+      responses:
+        '200': { description: Cierre, content: { application/json: { schema: { $ref: '#/components/schemas/FiscalClosing' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /reports/payment-validation:
+    get:
+      tags: [Reports]
+      summary: Validación de estados de pago (ADMIN)
+      x-stored-procedure: sp_validate_payment_status (MySQL)
+      parameters:
+        - { name: onlyIssues, in: query, schema: { type: string, enum: ['true', 'false'], default: 'true' } }
+      responses:
+        '200': { description: Resultado, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/PaymentValidation' } } } } }
+
+  /cart:
+    get:
+      tags: [Cart]
+      summary: Carrito del asistente de facturación (Lambda billing-cart, DynamoDB)
+      responses:
+        '200': { description: Carrito, content: { application/json: { schema: { $ref: '#/components/schemas/Cart' } } } }
+    put:
+      tags: [Cart]
+      summary: Guarda el carrito (TTL 7 días)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/Cart' } } }
+      responses:
+        '200': { description: Carrito guardado, content: { application/json: { schema: { $ref: '#/components/schemas/Cart' } } } }
+    delete:
+      tags: [Cart]
+      summary: Borra el carrito
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      summary: Indicadores de facturación (ADMIN, BILLER)
+      responses:
+        '200': { description: Dashboard, content: { application/json: { schema: { $ref: '#/components/schemas/Dashboard' } } } }
+  /audit:
+    get:
+      tags: [Dashboard]
+      summary: Bitácora de auditoría desde DynamoDB (ADMIN)
+      responses:
+        '200': { description: Entradas, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AuditEntry' } } } } }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Id: { name: id, in: path, required: true, schema: { type: string }, example: inv_40 }
+  responses:
+    Ok: { description: OK, content: { application/json: { schema: { type: object, properties: { ok: { type: boolean } } } } } }
+    Unauthorized: { description: "Sin token, token inválido o expirado", content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Forbidden: { description: El rol no tiene permiso, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    NotFound: { description: No existe o no es accesible, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Validation: { description: Datos inválidos, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Conflict: { description: Regla de negocio rechazada (incluye errores de Stored Procedures), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  requestBodies:
+    CustomerInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, taxId, email, address]
+            properties:
+              name: { type: string, maxLength: 150 }
+              taxId: { type: string, maxLength: 20 }
+              email: { type: string, format: email }
+              phone: { type: string, maxLength: 30 }
+              address: { type: string, maxLength: 255 }
+              active: { type: boolean }
+    UserInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [email, fullName, role]
+            properties:
+              email: { type: string, format: email }
+              fullName: { type: string, maxLength: 150 }
+              role: { $ref: '#/components/schemas/Role' }
+              customerId: { type: string, description: Obligatorio si role = CUSTOMER }
+              password: { type: string, format: password }
+              active: { type: boolean }
+    ServiceInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, name, basePrice, category]
+            properties:
+              code: { type: string, example: CLD-0101 }
+              name: { type: string }
+              description: { type: string }
+              basePrice: { type: number, minimum: 0 }
+              priceChangeReason: { type: string, maxLength: 255, description: Motivo guardado en service_price_history }
+              category: { $ref: '#/components/schemas/Category' }
+              taxIds: { type: array, items: { type: string } }
+              features: { type: array, items: { $ref: '#/components/schemas/ServiceFeature' } }
+              active: { type: boolean }
+    FeatureInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name]
+            properties:
+              name: { type: string, maxLength: 100 }
+              description: { type: string, maxLength: 1000 }
+              unit: { type: string, maxLength: 30 }
+    DraftInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [customerId, lines]
+            properties:
+              id: { type: string, description: Borrador existente (opcional) }
+              customerId: { type: string, example: cus_6 }
+              lines:
+                type: array
+                minItems: 1
+                items:
+                  type: object
+                  required: [serviceId, quantity]
+                  properties:
+                    serviceId: { type: string, example: svc_2 }
+                    quantity: { type: integer, minimum: 1, maximum: 9999 }
+  schemas:
+    Error:
+      type: object
+      properties:
+        code: { type: string, enum: [UNAUTHORIZED, FORBIDDEN, NOT_FOUND, VALIDATION, CONFLICT, RATE_LIMITED, INTERNAL] }
+        message: { type: string }
+    Role: { type: string, enum: [ADMIN, BILLER, CUSTOMER] }
+    Category:
+      type: string
+      enum: [Cloud Infrastructure, Software Licenses, Support & Maintenance, Consulting, Training, Security, Data & Analytics, Development]
+    Claims:
+      type: object
+      properties:
+        sub: { type: string }
+        email: { type: string }
+        name: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        customerId: { type: string, nullable: true }
+        exp: { type: integer, description: Epoch en milisegundos }
+    Customer:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        taxId: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        address: { type: string }
+        active: { type: boolean }
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        fullName: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        customerId: { type: string }
+        active: { type: boolean }
+    ServiceFeature:
+      type: object
+      properties:
+        featureId: { type: string }
+        value: { type: string }
+    Service:
+      type: object
+      properties:
+        id: { type: string }
+        code: { type: string }
+        name: { type: string }
+        description: { type: string }
+        basePrice: { type: number }
+        category: { $ref: '#/components/schemas/Category' }
+        taxIds: { type: array, items: { type: string } }
+        features: { type: array, items: { $ref: '#/components/schemas/ServiceFeature' } }
+        active: { type: boolean }
+    PriceHistory:
+      type: object
+      properties:
+        id: { type: string }
+        serviceId: { type: string }
+        oldPrice: { type: number, nullable: true }
+        newPrice: { type: number }
+        changePct: { type: number, nullable: true }
+        reason: { type: string, nullable: true }
+        changedBy: { type: string, nullable: true }
+        changedAt: { type: string, format: date-time }
+    Feature:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        unit: { type: string }
+    Tax:
+      type: object
+      properties:
+        id: { type: string }
+        code: { type: string, example: VAT16 }
+        name: { type: string }
+        currentRate: { type: number, example: 0.16 }
+        kind: { type: string, enum: [TRANSFER, WITHHELD] }
+    TaxHistory:
+      type: object
+      properties:
+        id: { type: string }
+        taxId: { type: string }
+        rate: { type: number }
+        validFrom: { type: string, format: date }
+        validTo: { type: string, format: date, nullable: true }
+    InvoiceLineTax:
+      type: object
+      properties:
+        taxId: { type: string }
+        code: { type: string }
+        kind: { type: string, enum: [TRANSFER, WITHHELD] }
+        rate: { type: number }
+        amount: { type: number }
+    InvoiceLine:
+      type: object
+      properties:
+        id: { type: string }
+        serviceId: { type: string }
+        serviceName: { type: string }
+        quantity: { type: integer }
+        unitPrice: { type: number }
+        lineSubtotal: { type: number }
+        taxes: { type: array, items: { $ref: '#/components/schemas/InvoiceLineTax' } }
+        taxAmount: { type: number }
+        withholdingAmount: { type: number }
+        lineTotal: { type: number }
+    Party:
+      type: object
+      properties:
+        name: { type: string }
+        taxId: { type: string }
+        address: { type: string }
+    Invoice:
+      type: object
+      properties:
+        id: { type: string }
+        folio: { type: string, nullable: true, example: INV-2026-0151 }
+        uuid: { type: string, nullable: true }
+        status: { type: string, enum: [DRAFT, ISSUED, PAID, CANCELLED] }
+        customerId: { type: string }
+        createdBy: { type: string }
+        issuer: { $ref: '#/components/schemas/Party' }
+        receiver: { $ref: '#/components/schemas/Party' }
+        lines: { type: array, items: { $ref: '#/components/schemas/InvoiceLine' } }
+        subtotal: { type: number }
+        discountPct: { type: number }
+        discountTotal: { type: number }
+        taxTotal: { type: number }
+        withholdingTotal: { type: number }
+        total: { type: number, description: subtotal - discountTotal + taxTotal - withholdingTotal }
+        createdAt: { type: string, format: date-time }
+        issuedAt: { type: string, format: date-time, nullable: true }
+        paidAt: { type: string, format: date-time, nullable: true }
+        cancelledAt: { type: string, format: date-time, nullable: true }
+        cancellationReason: { type: string, nullable: true }
+    Payment:
+      type: object
+      properties:
+        id: { type: string }
+        invoiceId: { type: string }
+        method: { type: string, enum: [CARD, TRANSFER, CASH] }
+        amount: { type: number }
+        reference: { type: string }
+        paidAt: { type: string, format: date-time }
+        registeredBy: { type: string }
+    AccountingEntry:
+      type: object
+      properties:
+        id: { type: string }
+        entryType: { type: string, enum: [ISSUE, PAYMENT, REVERSAL] }
+        account: { type: string, enum: [ACCOUNTS_RECEIVABLE, REVENUE, TAX_PAYABLE, WITHHOLDING_RECEIVABLE, BANK] }
+        debit: { type: number }
+        credit: { type: number }
+        createdAt: { type: string, format: date-time }
+    AgingRow:
+      type: object
+      properties:
+        customerId: { type: string }
+        customerName: { type: string }
+        taxId: { type: string }
+        openInvoices: { type: integer }
+        days0To30: { type: number }
+        days31To60: { type: number }
+        days61To90: { type: number }
+        daysOver90: { type: number }
+        balance: { type: number }
+        oldestDays: { type: integer }
+    FiscalClosing:
+      type: object
+      properties:
+        id: { type: string }
+        periodType: { type: string, enum: [DAY, MONTH] }
+        periodStart: { type: string, format: date }
+        periodEnd: { type: string, format: date }
+        invoiceCount: { type: integer }
+        cancelledCount: { type: integer }
+        subtotal: { type: number }
+        discountTotal: { type: number }
+        taxTotal: { type: number }
+        withholdingTotal: { type: number }
+        total: { type: number }
+        collectedTotal: { type: number }
+        closedBy: { type: string, nullable: true }
+        closedAt: { type: string, format: date-time }
+    PaymentValidation:
+      type: object
+      properties:
+        invoiceId: { type: string }
+        folio: { type: string, nullable: true }
+        status: { type: string }
+        total: { type: number }
+        paidAmount: { type: number }
+        validation: { type: string, enum: [OK, PAID_WITHOUT_PAYMENT, PAID_WITHOUT_DATE, AMOUNT_MISMATCH, PAYMENT_ON_UNPAID_STATUS] }
+    Cart:
+      type: object
+      properties:
+        invoiceId: { type: string, nullable: true }
+        customerId: { type: string, nullable: true }
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              serviceId: { type: string }
+              quantity: { type: integer }
+    Dashboard:
+      type: object
+      properties:
+        totalInvoiced: { type: number }
+        paid: { type: number }
+        pending: { type: number }
+        cancelled: { type: number }
+        drafts: { type: number }
+        byStatus:
+          type: array
+          items: { type: object, properties: { status: { type: string }, count: { type: integer }, amount: { type: number } } }
+        monthly:
+          type: array
+          items: { type: object, properties: { key: { type: string }, label: { type: string }, invoiced: { type: number }, collected: { type: number } } }
+        recent: { type: array, items: { $ref: '#/components/schemas/Invoice' } }
+    AuditEntry:
+      type: object
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        userName: { type: string }
+        action: { type: string, example: invoice.issue }
+        entityType: { type: string }
+        entityId: { type: string }
+        entityLabel: { type: string }
+        timestamp: { type: string, format: date-time }

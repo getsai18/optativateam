@@ -1,41 +1,17 @@
 # Lambdas independientes
 
-Funciones que complementan al backend Flask (`backend`). Cada carpeta es un paquete de
-despliegue: `handler.py` + `requirements.txt`. Runtime Python 3.12, handler `handler.handler`.
+Complementan a `billing-api`. Cada carpeta tiene `handler.py` (handler `handler.handler`) y, si hace falta,
+`requirements.txt`. Runtime Python 3.12, rol `LabRole`. Las empaqueta y despliega `infra/deploy.py`.
 
-Empaquetar (ejemplo con `authorizer`):
+| Lambda (stack) | Disparador | Memoria | Variables | Qué hace |
+|---|---|---|---|---|
+| `billing-authorizer-<stage>` | Authorizer de API Gateway (payload 1.0) | 128 MB | `JWT_SECRET` | Valida el JWT HS256; token inválido → 401. Caché de 300 s |
+| `billing-cart-<stage>` | `ANY /cart` | 128 MB | `CART_TABLE`, `CART_TTL_DAYS`, `CORS_ORIGIN` | `GET/PUT/DELETE` del carrito del asistente en DynamoDB; el usuario sale del contexto del authorizer |
+| `billing-tax-rate-sync-<stage>` | EventBridge `cron(5 0 * * ? *)` | 128 MB | `CATALOG_DB_*` | Llama a `sp_sync_tax_rates` para activar las tasas programadas |
+
+## Prueba manual
 
 ```bash
-cd backend/functions/authorizer
-pip install -r requirements.txt -t package --platform manylinux2014_x86_64 --only-binary=:all:
-cp handler.py package/ && cd package && zip -r ../authorizer.zip .
+aws lambda invoke --function-name billing-tax-rate-sync-dev --payload '{"today":"2026-12-01"}' \
+  --cli-binary-format raw-in-base64-out --profile learnerlab out.json && cat out.json
 ```
-
-| Lambda | Disparador | VPC | Variables | Permisos IAM |
-|---|---|---|---|---|
-| `authorizer` | API Gateway (Lambda authorizer) | No | `JWT_SECRET` | ninguno extra |
-| `cart` | `GET/PUT/DELETE /cart` | No | `CART_TABLE`, `CART_TTL_DAYS`, `CORS_ORIGIN` | `dynamodb:GetItem/PutItem/DeleteItem` sobre `billing_invoice_cart` |
-| `tax_rate_sync` | EventBridge `cron(5 0 * * ? *)` (diario, UTC) | No (RDS público) | `DB_ENGINE`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` (o `DB_SECRET_ARN`), `DB_SSL` | `secretsmanager:GetSecretValue` si usas `DB_SECRET_ARN` |
-
-## authorizer
-
-- Usa el mismo `JWT_SECRET` que el backend. El token lleva `exp` en milisegundos; HTTP API no puede
-  validarlo con su authorizer JWT nativo, por eso existe esta función.
-- Con REST API (tipo TOKEN) o HTTP API con *payload format 1.0*, un token inválido responde **401**,
-  que es lo que el frontend interpreta como sesión expirada. Con HTTP API *payload 2.0 simple response*
-  la respuesta es 403.
-- No lo asocies a `POST /auth/login` ni a `OPTIONS`.
-- Cache de resultados: 300 s es razonable; la policy ya usa `.../stage/*/*` para reutilizarse entre rutas.
-- Flask sigue validando el token y los roles; el authorizer solo corta antes las peticiones sin sesión.
-
-## cart
-
-Requiere crear antes la tabla (`database/dynamodb/dynamodb.sh` ya la crea, con TTL en `ttl`).
-El `user_id` sale del contexto del authorizer (`sub`), no del body. Para usarlo, `builderStore.ts` del
-frontend debe leer/escribir `/cart` en lugar de `localStorage`.
-
-## tax_rate_sync
-
-Actualiza `tax.current_rate` cuando llega la fecha de una tasa programada. Prueba manual con un
-evento `{"today": "2026-10-13"}`. Si el catálogo queda en una base distinta a la de facturación,
-apunta `DB_*` a la base que contiene `tax` y `tax_history`.

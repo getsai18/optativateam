@@ -71,12 +71,11 @@ sequenceDiagram
     API->>API: valida rol ADMIN o BILLER
     API->>MY: cliente activo
     API->>PG: servicios, impuestos y su historial de tasas
-    API->>API: calcula subtotal, impuestos y total
-    API->>MY: guarda factura y líneas (borrador)
-    API->>MY: SELECT ... FOR UPDATE sobre la factura
-    API->>MY: folio_counter: siguiente folio del año
-    API->>MY: estado ISSUED, folio INV-AAAA-NNNN, uuid
-    API->>MY: COMMIT
+    API->>MY: guarda borrador y líneas con copia de precio, tasa y tipo de impuesto
+    API->>MY: CALL sp_calculate_invoice_totals (descuento, IVA y retenciones)
+    API->>MY: CALL sp_issue_invoice
+    Note over MY: START TRANSACTION, SELECT ... FOR UPDATE,<br/>sp_calculate_invoice_totals, sp_next_folio,<br/>ISSUED + folio + UUID, asientos ISSUE, COMMIT
+    MY-->>API: factura emitida
     API->>DY: PutItem invoice.issue
     API-->>FE: factura emitida
 ```
@@ -152,12 +151,12 @@ flowchart TB
 
 | Riesgo | Control implementado |
 |---|---|
-| Inyección SQL | Todas las consultas usan parámetros nombrados (`:nombre`), nunca concatenan valores del usuario |
+| Inyección SQL | Todas las consultas y llamadas a Stored Procedures usan parámetros nombrados (`:nombre`), nunca concatenan valores del usuario |
 | Autenticación rota | JWT firmado HS256 con secreto de 32 caracteres o más, expiración, límite de intentos de login |
 | Almacenamiento de contraseñas | bcrypt con sal |
 | Control de acceso roto | RBAC en cada ruta; el cliente solo ve sus facturas; el `user_id` del carrito sale del token |
 | Exposición de datos | TLS hacia RDS; respuestas de error genéricas; sin secretos en el código |
 | Configuración insegura | Encabezados `X-Content-Type-Options`, `X-Frame-Options`, `Content-Security-Policy`, `Cache-Control: no-store`; CORS restringible al origen del frontend |
 | Datos de entrada | Validación de tipos, largos y caracteres de control; cuerpos mayores a 256 KB se rechazan |
-| Condiciones de carrera | `SELECT ... FOR UPDATE` al emitir, pagar y cancelar; el folio se asigna con contador bloqueado |
+| Condiciones de carrera | `sp_issue_invoice`, `sp_register_payment` y `sp_cancel_invoice` bloquean la factura con `SELECT ... FOR UPDATE` dentro de su transacción; `sp_next_folio` usa `INSERT ... ON DUPLICATE KEY UPDATE` con `LAST_INSERT_ID()` |
 | Trazabilidad | Cada alta, cambio, emisión, pago y cancelación se registra en DynamoDB |

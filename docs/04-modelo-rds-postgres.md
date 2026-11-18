@@ -1,7 +1,9 @@
 # 4. Modelo relacional — RDS PostgreSQL (catálogo)
 
-Base `catalog_db`. Contiene impuestos con su historial de tasas, servicios, características y las
-asociaciones entre ellos: **6 tablas**. Script: `database/postgres/01_schema.sql`.
+Base `postgres` (RDS PostgreSQL 18, `db.t3.micro`, 20 GB gp2, TLS). Contiene impuestos con su historial
+de tasas, servicios con su historial de precios, características y las asociaciones entre ellos:
+**7 tablas**. Scripts: `database/postgres/01_schema.sql`, `02_compat.sql` y `03_rubrica_ext.sql`.
+Stored Procedures: `database/procedures/postgres_procedures.sql`.
 
 ```mermaid
 erDiagram
@@ -9,6 +11,7 @@ erDiagram
     tax ||--o{ service_tax : "se aplica a"
     service ||--o{ service_tax : "tiene impuestos"
     service ||--o{ service_feature : "tiene características"
+    service ||--o{ service_price_history : "auditoría de tarifas"
     feature ||--o{ service_feature : "se asigna a"
 
     tax {
@@ -17,6 +20,7 @@ erDiagram
         varchar name
         numeric current_rate "0 a 1"
         smallint active
+        varchar kind "TRANSFER WITHHELD"
     }
     tax_history {
         int id PK
@@ -54,6 +58,16 @@ erDiagram
         int service_id PK, FK
         int tax_id PK, FK
     }
+    service_price_history {
+        int id PK
+        int service_id FK
+        numeric old_price
+        numeric new_price
+        numeric change_pct
+        varchar reason
+        int changed_by "app_user.id en MySQL"
+        timestamp changed_at
+    }
 ```
 
 ## Decisiones de diseño
@@ -72,4 +86,10 @@ erDiagram
   Development.
 - **Índices.** `ix_service_active_name`, `ix_service_feature_feature`, `ix_service_tax_tax` y
   `ix_tax_history_tax_dates` cubren las consultas frecuentes.
-- **Volumen requerido.** Carga sintética de 100 servicios y 50 características.
+- **Impuestos trasladados y retenidos.** `tax.kind` distingue IVA/IEPS (`TRANSFER`, se suman) de
+  ISR e IVA retenidos (`WITHHELD`, se restan). Los servicios de Consulting llevan ambas retenciones.
+- **Auditoría de tarifas.** El trigger `trg_service_price_audit` registra en `service_price_history`
+  cualquier cambio de `base_price` (precio anterior, nuevo, % de cambio, motivo y usuario). El
+  procedimiento `sp_update_service_price` fija el usuario y el motivo en la sesión antes de actualizar.
+- **Volumen.** 105 servicios en 8 categorías, 50 características y 441 asignaciones servicio-característica
+  (`database/postgres/04_seed_catalog.sql`).

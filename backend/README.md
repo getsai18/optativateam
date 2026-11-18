@@ -1,147 +1,101 @@
-# Backend — Sistema de Facturación (Flask)
+# Backend — Sistema de Facturación (Flask en AWS Lambda)
 
-API REST que implementa **1:1 los contratos del frontend** (`frontend/src/features/*/services`,
-`shared/types/domain.ts`). JSON en camelCase, errores con los mismos códigos y mensajes que el
-mock, roles `ADMIN` / `BILLER` / `CUSTOMER` y máquina de estados de factura
-`DRAFT → ISSUED → PAID`, `DRAFT|ISSUED → CANCELLED`.
+API REST que atiende al frontend (`frontend/src/features/*/services`). JSON en camelCase, roles
+`ADMIN` / `BILLER` / `CUSTOMER` y máquina de estados `DRAFT → ISSUED → PAID`, `DRAFT|ISSUED → CANCELLED`.
+La lógica transaccional vive en **Stored Procedures** (`database/procedures/`); la API los invoca.
 
 ```
-Frontend (React) → API Gateway → Lambda (Flask, este backend) → RDS MySQL (facturación) + RDS Postgres (catálogo) + DynamoDB
+API Gateway → Lambda billing-api (wsgi.handler, apig-wsgi) → RDS MySQL (facturación) + RDS PostgreSQL (catálogo) + DynamoDB (auditoría)
 ```
+
+Especificación completa: [`docs/openapi.yaml`](../docs/openapi.yaml).
 
 ## Estructura
 
 ```
 backend/
-├── wsgi.py               # entrada local y para serverless-wsgi
+├── wsgi.py               # handler de Lambda (apig-wsgi) y arranque local
 ├── app/
-│   ├── __init__.py       # create_app, CORS, manejadores de error
+│   ├── __init__.py       # create_app, CORS, encabezados de seguridad, manejadores de error
 │   ├── config.py         # variables de entorno
 │   ├── errors.py         # ApiError (UNAUTHORIZED/FORBIDDEN/NOT_FOUND/VALIDATION/CONFLICT)
-│   ├── auth.py           # JWT (HS256, exp en epoch ms), decorators login_required/require_role
-│   ├── domain.py         # cálculos puros: round2, rate_on_date, calculate_totals, estados, ids
-│   ├── db.py             # conectores MySQL (PyMySQL) / Postgres (psycopg) / Oracle, una conexión por rol
-│   ├── repos.py          # todas las consultas SQL
-│   ├── serializers.py    # filas -> JSON camelCase (ids str <-> PK num)
-│   ├── audit.py          # DynamoDB (billing_audit_log) con fallback en memoria
-│   └── views/            # blueprints: auth, customers, users, catalog, taxes,
-│                         # invoices, payments, dashboard, audit
-├── tests/                # pytest: unit + API con store en memoria (87 tests)
-├── Dockerfile
-├── serverless.yml
-└── .env.example
+│   ├── auth.py           # JWT HS256 (exp en epoch ms), login_required / require_role
+│   ├── domain.py         # cálculos puros (vista previa de totales con retenciones), estados, ids
+│   ├── db.py             # conexiones MySQL (PyMySQL) / PostgreSQL (psycopg); CALL y BusinessRuleError
+│   ├── repos.py          # consultas SQL y llamadas a los Stored Procedures
+│   ├── serializers.py    # filas → JSON camelCase
+│   ├── audit.py          # DynamoDB (billing_audit_log) o memoria
+│   └── views/            # auth, customers, users, catalog, taxes, invoices, payments, reports, dashboard, audit
+├── functions/            # Lambdas independientes: authorizer, cart, tax_rate_sync
+├── tests/                # pytest (126 pruebas, sin base de datos)
+├── requirements.txt      # dependencias de la Lambda
+└── requirements-dev.txt  # + pytest
 ```
 
-## Contrato API
+## Stored Procedures que usa la API
 
-| Método | Ruta | Roles |
-|---|---|---|
-| POST | `/auth/login` | público |
-| GET, POST | `/customers` | ADMIN, BILLER |
-| PUT | `/customers/{id}` | ADMIN |
-| GET, POST, PUT | `/users` | ADMIN |
-| GET, POST, PUT | `/services` | GET: ADMIN, BILLER · POST/PUT: ADMIN |
-| GET | `/features` | autenticado |
-| POST, PUT, DELETE | `/features[/{id}]` | ADMIN |
-| GET | `/taxes`, `/taxes/history` | autenticado |
-| POST | `/taxes/{id}/rates` | ADMIN |
-| GET | `/invoices` | autenticado (CUSTOMER: solo propias, no borradores) |
-| GET | `/invoices/{id}` | autenticado + `assertInvoiceAccess` |
-| POST | `/invoices` · `/invoices?issue=true` | ADMIN, BILLER |
-| PUT, DELETE | `/invoices/{id}` | ADMIN, BILLER |
-| POST | `/invoices/{id}/issue`, `/invoices/{id}/cancel` | ADMIN, BILLER |
-| GET, POST | `/invoices/{id}/payments` | GET: autenticado · POST: ADMIN, BILLER |
-| GET | `/dashboard` | ADMIN, BILLER |
-| GET | `/audit` | ADMIN |
+| Endpoint | SP |
+|---|---|
+| `POST /invoices`, `PUT /invoices/{id}` | `sp_calculate_invoice_totals` (+ `sp_apply_discount`) |
+| `POST /invoices/{id}/issue`, `POST /invoices?issue=true` | `sp_issue_invoice` (+ `sp_next_folio`) |
+| `POST /invoices/{id}/payments` | `sp_register_payment` |
+| `POST /invoices/{id}/cancel` | `sp_cancel_invoice` |
+| `GET /invoices/{id}/stamp` | `sp_build_stamp_payload` |
+| `GET /reports/aging` | `sp_aging_report` |
+| `POST /reports/fiscal-closings` | `sp_fiscal_closing` |
+| `GET /reports/payment-validation` | `sp_validate_payment_status` |
+| `POST /taxes/{id}/rates` | `sp_change_tax_rate` (PostgreSQL) |
+| `PUT /services/{id}` con cambio de precio | `sp_update_service_price` (PostgreSQL) |
+| `POST /features/bulk-assign` | `sp_bulk_assign_features` (PostgreSQL) |
+| Lambda `tax_rate_sync` (diaria) | `sp_sync_tax_rates` (PostgreSQL) |
 
-Errores: `{ "code": "UNAUTHORIZED|FORBIDDEN|NOT_FOUND|VALIDATION|CONFLICT", "message": "..." }`
-con HTTP 401/403/404/400/409. Los mensajes coinciden literalmente con los del frontend.
+Cuando un SP rechaza una operación (`SIGNAL SQLSTATE '45000'` en MySQL o `RAISE EXCEPTION` en PostgreSQL),
+`db.py` lo convierte en `BusinessRuleError` y la API responde `409 {"code":"CONFLICT","message":"<mensaje del SP>"}`.
 
-## Reglas de negocio (idénticas al frontend)
+## Reglas principales
 
-- **JWT**: `exp` en **epoch milisegundos** (el cliente valida contra `Date.now()`), TTL
-  `SESSION_TTL_MS` = 30 min. Token firmado HS256 con `JWT_SECRET`.
-- **IDs**: la API expone strings (`cus_15`, `usr_1`, `inv_4`…); internamente son PK numéricas.
-- **Cálculos**: `calculate_totals` replica `calculateTotals.ts` (redondeo half-up tipo JS con
-  `Number.EPSILON`, tasa vigente por fecha con `validFrom <= fecha < validTo`).
-- **Borradores**: se re-precifican con `base_price` vigente en cada guardado; al emitir se
-  conserva el `unit_price` de la línea y se re-cotizan solo los impuestos.
-- **Folio**: `INV-YYYY-NNNN` secuencial por año, transaccional (`SELECT ... FOR UPDATE`).
-- **Pagos**: uno total por factura `ISSUED`; referencia simulada `SIM-XXXXXX`.
-- **Clientes (`CUSTOMER`)**: solo ven sus facturas no borradores; cualquier intento de sondeo
-  responde `NOT_FOUND` (anti-probing), no `FORBIDDEN`.
-- **Seed**: el `password_hash` del script SQL es un marcador; el login acepta `DEMO_PASSWORD`
-  (`demo1234`) mientras el hash no sea un bcrypt válido de 60 caracteres. Usuarios creados por
-  API reciben un hash bcrypt real de `DEMO_PASSWORD` (o de `password` si se envía en el body).
+- **JWT**: HS256 con `JWT_SECRET` (≥ 32 caracteres), `exp` en milisegundos, sesión de 30 min.
+- **IDs**: la API expone `cus_15`, `inv_4`…; internamente son PK numéricas.
+- **Totales**: `total = subtotal − descuento + impuestos trasladados − retenciones`. El descuento por cliente o
+  volumen lo decide `sp_apply_discount` con la tabla `discount_rule`.
+- **Copia del catálogo**: cada línea guarda nombre, precio, tasa y tipo de impuesto vigentes. Una factura
+  emitida no cambia si el catálogo cambia.
+- **Clientes (`CUSTOMER`)**: solo ven sus facturas emitidas; cualquier sondeo responde `NOT_FOUND`.
 
-## Configuración (`.env`)
-
-Copia `.env.example` a `.env`. Variables principales:
+## Configuración (`backend/.env`)
 
 | Variable | Descripción |
 |---|---|
-| `BILLING_DB_ENGINE/HOST/PORT/NAME/USER/PASSWORD` | RDS **MySQL** de facturación: `app_user`, `customer`, `issuer`, `invoice*`, `payment`, `folio_counter` (acepta también `DB_*` por compatibilidad) |
-| `CATALOG_DB_ENGINE/HOST/PORT/NAME/USER/PASSWORD` | RDS **Postgres** de catálogo: `tax`, `tax_history`, `service`, `feature`, `service_tax`, `service_feature`. Sin `CATALOG_DB_HOST` se usa la base de facturación (una sola base) |
-| `ALLOW_DEMO_LOGIN` | `false` por defecto. En `true` acepta `DEMO_PASSWORD` para usuarios cuyo hash no es bcrypt (solo desarrollo local) |
-| `JWT_SECRET` | obligatorio en producción (aleatorio ≥ 32 bytes) |
-| `SESSION_TTL_MS` | `1800000` (misma sesión que el frontend) |
-| `AUDIT_BACKEND` | `memory` (dev) o `dynamodb` (producción) |
-| `AUDIT_TABLE` | `billing_audit_log` |
-| `AUDIT_REQUIRED` | `true` falla la operación si DynamoDB no acepta el evento |
-| `CORS_ORIGINS` | comas; `*` por defecto |
+| `BILLING_DB_HOST/PORT/NAME/USER/PASSWORD` | RDS MySQL de facturación |
+| `CATALOG_DB_HOST/PORT/NAME/USER/PASSWORD` | RDS PostgreSQL del catálogo |
+| `JWT_SECRET` | Obligatorio, ≥ 32 caracteres aleatorios |
+| `SESSION_TTL_MS` | `1800000` |
+| `ALLOW_DEMO_LOGIN`, `DEMO_PASSWORD` | Solo desarrollo: acepta `DEMO_PASSWORD` si el hash no es bcrypt |
+| `AUDIT_BACKEND`, `AUDIT_TABLE`, `AUDIT_REQUIRED` | `memory` en local; `dynamodb` en Lambda (lo fija la plantilla) |
+| `CORS_ORIGINS` | Orígenes permitidos separados por comas |
 
-## Puesta en marcha local
+En AWS estas variables las define `infra/template.yaml` a partir de `backend/.env`.
 
-1. Crear la base de facturación con `../../database/mysql/01_schema.sql`
-   y ejecutar `database/postgres/02_compat.sql` en el catálogo (agrega `tax_history.changed_by` y el índice de un solo periodo abierto).
-2. Para DynamoDB (opcional en dev): `../database/dynamodb/dynamodb.sh` y
-   `AUDIT_BACKEND=dynamodb`.
-3. ```bash
-   python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-   pip install -r requirements.txt
-   cp .env.example .env    # completar credenciales
-   python wsgi.py          # http://127.0.0.1:5000
-   ```
-4. Login de prueba: `POST /auth/login` con `admin@northwind.test` / `demo1234`.
+## Ejecutar en local
+
+```bash
+cd backend
+python -m venv .venv && source .venv/Scripts/activate   # Linux/macOS: .venv/bin/activate
+pip install -r requirements-dev.txt
+python wsgi.py                                          # http://127.0.0.1:5000 (usa backend/.env)
+```
+
+El frontend local apunta aquí con `VITE_API_URL=http://127.0.0.1:5000` en `frontend/.env`.
 
 ## Pruebas
 
 ```bash
-python -m pytest tests -q
+python -m pytest -q
 ```
 
-Sin necesidad de base de datos: unitarios de dominio/cálculos/token + tests de API contra un
-store en memoria que sustituye `app/repos.py`. La validación de integración contra RDS se hace
-con los mismos scripts SQL descritos arriba (pendiente en entornos con instancia real).
+No requieren base de datos: `tests/conftest.py` sustituye `app/repos.py` por un almacén en memoria y
+`tests/fake_procedures.py` emula los Stored Procedures con las mismas reglas y mensajes.
 
-## Docker
+## Desplegar
 
-```bash
-docker build -t billing-api .
-docker run --rm -p 8000:8000 --env-file .env billing-api
-```
-
-## Despliegue serverless (AWS)
-
-`serverless.yml` publica la app Flask en **API Gateway (HTTP API) + Lambda** vía
-`serverless-wsgi`:
-
-```bash
-npm i -g serverless serverless-wsgi serverless-python-requirements
-export JWT_SECRET=... BILLING_DB_HOST=... BILLING_DB_USER=... BILLING_DB_PASSWORD=... CATALOG_DB_HOST=... CATALOG_DB_USER=... CATALOG_DB_PASSWORD=... AUDIT_BACKEND=dynamodb
-serverless deploy --stage dev --region us-east-1
-```
-
-Pendiente documentado (no incluido a propósito): VPC/subnets de la RDS, referencia a secretos en
-Secrets Manager y el bucket/lógica de políticas IAM — rellenar con los valores reales del entorno.
-
-## Notas de implementación
-
-- Los SPs de los scripts SQL (`sp_issue_invoice`, `sp_register_payment`, `sp_cancel_invoice`,
-  `fn_*`) son una alternativa de utilidad a nivel de base de datos; el backend implementa la
-  lógica en Python para reproducir exactamente el comportamiento del frontend y funcionar igual
-  en MySQL y Oracle.
-- `created_at`/`issued_at`/`paid_at`/`cancelled_at` se escriben siempre en UTC desde la app.
-- Unicidades: email de usuario y code de servicio respetan el chequeo case-insensitive del
-  frontend; el backend también mapea duplicados de BD (1062 / ORA-00001) a `CONFLICT`.
-- El frontend elimina `phone`/`unit` cuando no hay valor: la API omite la clave (no manda `null`).
+Ver [`docs/DESPLIEGUE.md`](../docs/DESPLIEGUE.md): `python infra/deploy.py --profile learnerlab`.
