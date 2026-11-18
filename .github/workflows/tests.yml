@@ -87,6 +87,11 @@ jobs:
             echo "ALLOW_DEMO_LOGIN=$ALLOW_DEMO_LOGIN"
             echo "CORS_ORIGINS=$CORS_ORIGINS"
           } > backend/.env
+      - name: Habilitar triggers y funciones en MySQL de CI
+        # El contenedor mysql:8.4 trae binary logging; sin esta variable MySQL exige
+        # privilegio SUPER para crear triggers/procedimientos y el usuario 'billing' no lo tiene.
+        run: |
+          python -c "import pymysql; c=pymysql.connect(host='127.0.0.1', port=3306, user='root', password='root'); c.cursor().execute('SET GLOBAL log_bin_trust_function_creators = 1'); c.commit(); c.close()"
       - name: Aplicar esquema y stored procedures de MySQL
         # --fresh recrea las tablas (pide confirmación); el servicio está vacío.
         # Postgres se carga desde test_sp_integration.py: apply.py exige sslmode=require
