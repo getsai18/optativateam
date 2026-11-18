@@ -6,6 +6,7 @@
 | `postgres/` | RDS PostgreSQL (catálogo): `01_schema.sql`, `02_compat.sql`, `03_rubrica_ext.sql` (tipo de impuesto, auditoría de tarifas) |
 | `procedures/` | Stored Procedures: `mysql_procedures.sql` y `postgres_procedures.sql` |
 | `dynamodb/` | Esquema de las tablas DynamoDB e índices |
+| `seed/` | `generate_seed.py` (genera los `04_seed*.sql`) y `seed_invoices.py` (historial de facturas vía SPs) |
 | `apply.py` | Aplica los scripts a los RDS con las credenciales de `backend/.env` |
 
 ## Aplicar
@@ -16,6 +17,21 @@ python database/apply.py            # extensiones + SPs (idempotente, no borra d
 python database/apply.py --seed     # + datos sintéticos
 python database/apply.py --fresh    # DESTRUCTIVO: recrea las tablas
 ```
+
+## Datos sintéticos
+
+```bash
+python database/seed/generate_seed.py    # regenera 04_seed*.sql (semilla fija, determinista)
+python database/apply.py --seed          # 105 servicios, 50 características, 50 clientes
+python database/seed/seed_invoices.py    # ~150 facturas en 6 meses usando los SPs + cierres fiscales
+```
+
+| Dato | Volumen | Rúbrica |
+|---|---|---|
+| Servicios | 105 (8 categorías) | ≥ 100 |
+| Características | 50 (441 asignaciones) | ≥ 50 |
+| Clientes | 50 | — |
+| Facturas | ~158 (borrador, emitida, pagada, cancelada) | — |
 
 ## Stored Procedures vs. rúbrica (Proyecto C)
 
