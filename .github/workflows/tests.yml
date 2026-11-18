@@ -16,14 +16,12 @@ jobs:
       BILLING_DB_NAME: Facturacion_Mysql
       BILLING_DB_USER: billing
       BILLING_DB_PASSWORD: billing
-      BILLING_DB_SSL: disable
       CATALOG_DB_ENGINE: postgres
       CATALOG_DB_HOST: 127.0.0.1
       CATALOG_DB_PORT: '5432'
       CATALOG_DB_NAME: catalog_db
       CATALOG_DB_USER: catalog
       CATALOG_DB_PASSWORD: catalog
-      CATALOG_DB_SSL: disable
       JWT_SECRET: ci-only-secret-0123456789-0123456789-abcdef
       ALLOW_DEMO_LOGIN: 'false'
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
