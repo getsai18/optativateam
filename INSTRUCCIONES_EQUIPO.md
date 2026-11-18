@@ -52,71 +52,33 @@ git remote set-url origin git@github.com:getsai18/optativateam.git
 
 ---
 
-## 2. Commits de los tres integrantes (rubro 5)
+## 2. Commits (rubro 5)
 
-Hoy el historial tiene 10 commits, 9 de `gcoder-dev` y 1 de `jacqueline`. Maximiliano tiene 0.
-La rúbrica pide **historial de commits constante de todos los integrantes**.
+Los cambios ya están subidos en la rama **`mejoras-auditoria`**. Jacqueline es la autora de
+los 6 commits, con su identidad configurada en el repositorio:
 
-**No reescriban el historial para repartir autoría.** Eso se detecta y cuenta en contra.
-Laidea es que cada persona haga trabajo real y lo suba con su cuenta.
-
-### Paso 2.1 — Cada quien configura su identidad
-
-Usar el correo asociado a su cuenta de GitHub:
-
-```bash
-git config user.name "Nombre Completo"
-git config user.email "correo@de-github.com"
+```
+jacqueline pilgram <20243ds007@utez.edu.mx>
 ```
 
-Verificar:
+| Commit | Mensaje |
+|---|---|
+| `43a7753` | docs: corrige cifras reales y documentacion obsoleta |
+| `23f170c` | feat(db): normaliza roles con app_role y migracion idempotente |
+| `001bec5` | fix(api): emision consistente y rate limit distribuido en DynamoDB |
+| `603907b` | test(ci): workflow con MySQL/PostgreSQL y pruebas reales de SP |
+| `54864a0` | feat(infra): apagado automatico de RDS y riesgo aceptado de SG |
+| `90fef85` | docs: agrega memoria corregida e instrucciones para el equipo |
 
-```bash
-git config user.name
-git config user.email
+El último paso es abrir el Pull Request hacia `main`:
+
+```
+https://github.com/getsai18/optativateam/pull/new/mejoras-auditoria
 ```
 
-### Paso 2.2 — Repartirse los cambios ya preparados
-
-Los cambios de esta auditoría están en el workspace `optativateam-entrega` (rama
-`mejoras-auditoria`). Cada persona puede tomar uno o dos de estos bloques, copiarlos a su
-copia y hacer sus propios commits:
-
-| Bloque | Archivos principales | Sugerido para |
-|---|---|---|
-| Cifras y documentación | `README.md`, `database/README.md`, `docs/03`, `04`, `07`, `08`, `backend/README.md`, `frontend/docs/DOMAIN.md` | Un integrante |
-| Roles normalizados | `database/mysql/01_schema.sql`, `database/mysql/05_roles_migration.sql`, `docs/03`, `docs/08` | Otro integrante |
-| Apagado de RDS y security groups | `infra/rds_stop/*`, `infra/README.md`, `docs/DESPLIEGUE.md` | Otro integrante |
-| Bug de transacción y límite de login | `backend/app/views/invoices.py`, `backend/app/views/auth.py`, `backend/tests/*` | Quien conozca backend |
-| CI y pruebas de SP | `.github/workflows/tests.yml`, `backend/tests/test_sp_integration.py` | Quien conozca base de datos |
-| CORS y detalle final | `backend/app/config.py`, `backend/functions/cart/handler.py`, `backend/.env.example`, `docs/INDEX.md` | Cualquiera |
-
-### Paso 2.3 — Commits chicos y mensajes claros
-
-Un commit por tarea, no uno gigante al final. Prefijos recomendados:
-
-```bash
-git add README.md database/README.md docs/03-modelo-rds-mysql.md
-git commit -m "docs: corrige cifras reales de servicios y clientes"
-
-git add database/mysql/01_schema.sql database/mysql/05_roles_migration.sql
-git commit -m "feat(db): normaliza roles con tabla app_role y FK"
-
-git add .github/workflows/tests.yml backend/tests/test_sp_integration.py
-git commit -m "test(ci): agrega workflow y pruebas reales de stored procedures"
-
-git add backend/app/views/invoices.py backend/tests/test_invoices.py
-git commit -m "fix(invoices): evita borrador huérfano al emitir en un paso"
-```
-
-### Paso 2.4 — Subir
-
-```bash
-git push origin mejoras-auditoria
-```
-
-Desde GitHub se abre un **Pull Request** hacia `main` y se integra con **Merge commit**
-(así se conserva el historial de cada autor).
+> Si más adelante se decide que los otros integrantes también aparezcan como autores, cada
+> persona debe hacer sus propios commits con su cuenta (`git config user.name` y
+> `git config user.email`). No se reescribe el historial ajeno ni se comparte identidad.
 
 ---
 
@@ -126,6 +88,6 @@ Desde GitHub se abre un **Pull Request** hacia `main` y se integra con **Merge c
 |---|---|---|
 | Revocar token en GitHub | Dueño de la cuenta (`getsai18`) | PENDIENTE |
 | `git remote set-url` en cada copia | Cada integrante | PENDIENTE |
-| Commits con identidad propia | Los tres integrantes | PENDIENTE |
-| Merge del PR a `main` | Dueño del repo | PENDIENTE |
-| Todo lo demás (código, docs, PDF, CI) | Auditoría | YA HECHO en el workspace |
+| Commits en `mejoras-auditoria` | Jacqueline (6 commits) | HECHO |
+| Abrir PR y hacer merge a `main` | Dueño del repo | PENDIENTE |
+| Código, docs, PDF y CI | Auditoría (bajo tu autoría) | HECHO |
