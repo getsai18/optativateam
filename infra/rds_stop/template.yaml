@@ -6,7 +6,7 @@ Description: >
   Sin VPC, sin roles IAM nuevos (usa LabRole) y sin recursos con comodines.
 
 Parameters:
-  DB_IDS:
+  DbIds:
     Type: String
     NoEcho: false
     Description: >
@@ -35,7 +35,7 @@ Resources:
       Handler: handler.handler
       Environment:
         Variables:
-          DB_IDS: !Ref DB_IDS
+          DB_IDS: !Ref DbIds
       Events:
         DailyStop:
           Type: Schedule

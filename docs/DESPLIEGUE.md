@@ -205,7 +205,7 @@ La regla `cron(0 4 * * ? *)` dispara a las **04:00 UTC = 22:00 hora de CDMX** (U
      --output-template-file .build/rds_stop_packaged.yaml \
      --profile datos
 
-   echo '["DB_IDS=Facturacion_Mysql,postgres"]' > .build/rds_stop_params.json
+   echo '["DbIds=id-mysql,id-postgres"]' > .build/rds_stop_params.json
 
    aws cloudformation deploy \
      --template-file .build/rds_stop_packaged.yaml \
@@ -216,7 +216,7 @@ La regla `cron(0 4 * * ? *)` dispara a las **04:00 UTC = 22:00 hora de CDMX** (U
    ```
 
    Sustituye `Facturacion_Mysql,postgres` por los identificadores reales de tus RDS (consola RDS →
-   *Databases*). `DB_IDS` no contiene secretos, por eso el parámetro es `NoEcho: false`. La plantilla
+   *Databases*). `DbIds` no contiene secretos, por eso el parámetro es `NoEcho: false`. La plantilla
    usa `LabRole`, 128 MB, timeout de 15 s, sin VPC y sin crear roles IAM ni políticas con comodines.
 
    > El archivo de parámetros evita que la lista con comas sea ambigua en la línea de comandos.

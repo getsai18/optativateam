@@ -67,13 +67,13 @@ aws cloudformation package --template-file infra/rds_stop/template.yaml \
   --s3-bucket billing-artifacts-$ACCOUNT-us-east-1 --s3-prefix rds-stop \
   --output-template-file .build/rds_stop_packaged.yaml --profile datos
 
-# .build/rds_stop_params.json contiene: ["DB_IDS=Facturacion_Mysql,postgres"]
+# .build/rds_stop_params.json contiene: ["DbIds=id-mysql,id-postgres"]
 aws cloudformation deploy --template-file .build/rds_stop_packaged.yaml \
   --stack-name billing-rds-stop --capabilities CAPABILITY_AUTO_EXPAND \
   --parameter-overrides file://.build/rds_stop_params.json --profile datos
 ```
 
-`DB_IDS` no contiene secretos, por eso el parámetro es `NoEcho: false`. No hace falta instalar
+`DbIds` no contiene secretos, por eso el parámetro es `NoEcho: false`. No hace falta instalar
 boto3 en el paquete: viene con el runtime de Lambda.
 
 ## Rutas de API Gateway
